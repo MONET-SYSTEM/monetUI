@@ -8,4 +8,28 @@ class AppStyles {
         fontWeight: FontWeight.bold
       );
   }
+
+  static TextStyle title1({double size = 32, Color color = Colors.black}) {
+    return TextStyle(
+        color: color,
+        fontSize: size,
+        fontWeight: FontWeight.bold
+    );
+  }
+
+  static TextStyle title3({double size = 18, Color color = Colors.black}) {
+    return TextStyle(
+        color: color,
+        fontSize: size,
+        fontWeight: FontWeight.bold
+    );
+  }
+
+  static TextStyle regular1({double size = 16, Color color = Colors.black}) {
+    return TextStyle(
+        color: color,
+        fontSize: size,
+    );
+  }
+
 }
