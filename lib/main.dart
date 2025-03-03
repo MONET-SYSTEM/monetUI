@@ -19,6 +19,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
 
         colorScheme: ColorScheme.fromSeed(seedColor: AppColours.primaryColour),
+        useMaterial3: true,
+        fontFamily: 'Inter'
       ),
      initialRoute: AppRoutes.splash,
      routes: {
