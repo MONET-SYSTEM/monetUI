@@ -30,7 +30,7 @@ class _State extends State<SplashScreen> {
 
   void initApp() {
     Future.delayed(
-        const Duration(seconds: 5),
+        const Duration(seconds: 2),
             () => Navigator.of(context).pushReplacementNamed(AppRoutes.walkThrough));
   }
 }
