@@ -9,7 +9,7 @@ class AppStyles {
       );
   }
 
-  static TextStyle title1({double size = 32, Color color = Colors.black}) {
+  static TextStyle title1({double size = 28, Color color = Colors.black}) {
     return TextStyle(
         color: color,
         fontSize: size,
@@ -25,10 +25,11 @@ class AppStyles {
     );
   }
 
-  static TextStyle regular1({double size = 16, Color color = Colors.black}) {
+  static TextStyle regular1({double size = 16, Color color = Colors.black, FontWeight weight = FontWeight.normal}) {
     return TextStyle(
-        color: color,
-        fontSize: size,
+      color: color,
+      fontSize: size,
+      fontWeight: weight
     );
   }
 
