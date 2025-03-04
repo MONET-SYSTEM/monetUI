@@ -8,4 +8,5 @@ class AppStrings {
   static String walkthroughDescription2 = "Track your transaction easily, with categories and financial report ";
   static String walkthroughTitle3 = "Planning ahead";
   static String walkthroughDescription3 = "Setup your budget for each category so you in control";
+  static String inputIsRequired = ':input is required';
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:monet/resources/app_colours.dart';
 import 'package:monet/resources/app_routes.dart';
 import 'package:monet/resources/app_strings.dart';
+import 'package:monet/resources/views/auth/signup.dart';
 import 'package:monet/resources/views/onboarding/splash_screen.dart';
 import 'package:monet/resources/views/onboarding/walkthrough.dart';
 
@@ -25,7 +26,8 @@ class MyApp extends StatelessWidget {
      initialRoute: AppRoutes.splash,
      routes: {
         AppRoutes.splash: (context)=> const SplashScreen(),
-       AppRoutes.walkThrough: (context)=> const WalkthroughScreen()
+        AppRoutes.walkThrough: (context)=> const WalkthroughScreen(),
+        AppRoutes.signup: (context)=> const SignupScreen()
      },
     );
   }

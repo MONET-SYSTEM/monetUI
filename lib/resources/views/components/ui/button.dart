@@ -7,8 +7,9 @@ class ButtonComponent extends StatefulWidget {
   final double? width;
   final Widget? icon;
   final ButtonType? type;
+  final Function() onPressed;
 
-  const ButtonComponent({super.key, required this.label, this.icon, this.type, this.width});
+  const ButtonComponent({super.key, required this.label, this.icon, this.type, this.width, required this.onPressed});
 
   @override
   State<ButtonComponent> createState() => _ButtonComponentState();
@@ -20,7 +21,9 @@ class _ButtonComponentState extends State<ButtonComponent> {
     return SizedBox(
       width: widget.width ?? MediaQuery.of(context).size.width,
       height: 56,
-      child: ElevatedButton(onPressed: (){},style: ElevatedButton.styleFrom(
+      child: ElevatedButton(
+          onPressed: widget.onPressed,
+          style: ElevatedButton.styleFrom(
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           backgroundColor: widget.type == ButtonType.secondary ? AppColours.primaryColourLight : AppColours.primaryColour
