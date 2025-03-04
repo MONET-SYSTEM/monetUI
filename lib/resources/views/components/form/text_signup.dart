@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:monet/resources/app_colours.dart';
+import 'package:monet/resources/app_strings.dart';
 
 class TextInputComponent extends StatefulWidget {
+  final bool isRequired;
   final String label;
   final bool isPassword;
+  final TextEditingController textEditingController;
+  final ValueChanged<String>? onFieldSubmitted;
+  final TextInputAction? textInputAction;
+  final FocusNode? focusNode;
+  final TextInputType? textInputType;
+  final bool  isEnabled;
 
   const TextInputComponent({
     super.key,
     required this.label,
-    this.isPassword = false,
+    this.isPassword = false, required this.textEditingController,
+    this.onFieldSubmitted, this.textInputAction, this.focusNode, this.textInputType,
+    this.isRequired = false, this.isEnabled = true
   });
 
   @override
@@ -21,7 +31,21 @@ class _TextInputComponentState extends State<TextInputComponent> {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      enabled: widget.isEnabled,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      validator: (value) {
+        if(!widget.isRequired) return null;
+        if(value == null || value.isEmpty) {
+          return AppStrings.inputIsRequired.replaceAll(":input", widget.label);
+        }
+        return null;
+      },
+      focusNode: widget.focusNode,
       obscureText: (widget.isPassword && !showPassword),
+      onFieldSubmitted: widget.onFieldSubmitted,
+      keyboardType: widget.textInputType,
+      textInputAction: widget.textInputAction ?? TextInputAction.next,
+
       decoration: InputDecoration(
         labelText: widget.label,
         labelStyle: TextStyle(color: AppColours.light20),
@@ -41,9 +65,9 @@ class _TextInputComponentState extends State<TextInputComponent> {
         ),
         suffixIcon:
             widget.isPassword
-                ? InkWell(
-                  onTap: togglePassword,
-                  child: Icon(
+                ? IconButton(
+                  onPressed: togglePassword,
+                  icon: Icon(
                     showPassword
                         ? Icons.visibility_off_outlined
                         : Icons.visibility_outlined,

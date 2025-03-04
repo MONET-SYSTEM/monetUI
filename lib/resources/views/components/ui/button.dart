@@ -8,6 +8,7 @@ class ButtonComponent extends StatefulWidget {
   final Widget? icon;
   final ButtonType type;
   final Function() onPressed;
+  final bool isLoading;
 
   const ButtonComponent({
     super.key,
@@ -15,7 +16,7 @@ class ButtonComponent extends StatefulWidget {
     this.icon,
     this.type = ButtonType.primary,
     this.width,
-    required this.onPressed,
+    required this.onPressed, this.isLoading = false,
   });
 
   @override
@@ -47,7 +48,9 @@ class _ButtonComponentState extends State<ButtonComponent> {
       width: widget.width ?? MediaQuery.of(context).size.width,
       height: 56,
       child: ElevatedButton(
-        onPressed: widget.onPressed,
+        onPressed: () {
+          if(!widget.isLoading) widget.onPressed();
+        },
         style: ElevatedButton.styleFrom(
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -56,7 +59,8 @@ class _ButtonComponentState extends State<ButtonComponent> {
           side: BorderSide(color: borderColour[widget.type]!),
           backgroundColor: backGroundColour[widget.type],
         ),
-        child: Row(
+        child: widget.isLoading ? CircularProgressIndicator(color: foreGroundColour[widget.type]) :
+        Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if(widget.icon != null) widget.icon!,
