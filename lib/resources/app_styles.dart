@@ -21,7 +21,7 @@ class AppStyles {
     return TextStyle(
         color: color,
         fontSize: size,
-        fontWeight: FontWeight.bold
+        fontWeight: FontWeight.w600
     );
   }
 
@@ -40,6 +40,15 @@ class AppStyles {
         color: color,
         fontSize: size,
         fontWeight: FontWeight.w600
+    );
+  }
+
+  static TextStyle bold({double size = 16, Color color = Colors
+      .black, FontWeight weight = FontWeight.normal}) {
+    return TextStyle(
+        color: color,
+        fontSize: size,
+        fontWeight: FontWeight.bold
     );
   }
 

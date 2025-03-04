@@ -9,4 +9,13 @@ class AppStrings {
   static String walkthroughTitle3 = "Planning ahead";
   static String walkthroughDescription3 = "Setup your budget for each category so you in control";
   static String inputIsRequired = ':input is required';
+  static String name = 'Name';
+  static String emailAddress = 'E-mail Address';
+  static String password = 'Password';
+  static String agreeText = 'By signing up, you agree to the';
+  static String termsAndPrivacy = 'Terms of Service and Privacy Policy';
+  static String orWith = 'Or with';
+  static String signUpWithGoogle = 'Sign Up with Google';
+  static String alreadyHaveAnAccount = 'Already have an account?';
+
 }
