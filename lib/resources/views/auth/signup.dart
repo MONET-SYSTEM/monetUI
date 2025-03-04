@@ -20,14 +20,16 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       backgroundColor: AppColours.backgroundColor,
       appBar: AppBar(
-        title: Text(AppStrings.signUp, style: AppStyles.appTitle()),
+        centerTitle: true,
+        backgroundColor: AppColours.backgroundColor,
+        title: Text(AppStrings.signUp, style:  AppStyles.appTitle()),
         leading: InkWell(
           onTap: () => Navigator.of(context).pop(),
           child: Icon(Icons.arrow_back),
         ),
       ),
       body: ListView(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         children: [
           TextInputComponent(label: AppStrings.name),
           const SizedBox(height: 16),
