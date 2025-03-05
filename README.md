@@ -1,6 +1,7 @@
 # monet
 
-MONET - Money Expense Tracker System
+MONET - Money Expense Tracker System  
+Flutter/Dart Programming Language
 
 ## Getting Started
 
