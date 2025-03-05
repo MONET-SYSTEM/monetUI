@@ -141,7 +141,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               context,
                             ).pushReplacementNamed(AppRoutes.login),
                         child: Text(
-                          AppStrings.logIn,
+                          AppStrings.login,
                           style: AppStyles.medium(
                             size: 16,
                             color: AppColours.primaryColour,
@@ -168,6 +168,7 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
     setState(() => isLoading = true);
+
     Future.delayed(const Duration(seconds: 3), (){
       print ("success");
       setState(() => isLoading = false);
