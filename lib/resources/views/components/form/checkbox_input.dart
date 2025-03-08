@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:monet/resources/app_colours.dart';
+import 'package:monet/resources/app_spacing.dart';
 import 'package:monet/resources/app_strings.dart';
 import 'package:monet/resources/app_styles.dart';
 
@@ -35,7 +36,7 @@ class _CheckboxInputComponentState extends State<CheckboxInputComponent> {
               } : null),
         ),
         if(widget.label != null)...[
-          const SizedBox(height: 4),
+          AppSpacing.horizontal(size: 4),
           Expanded(child: widget.label!)
         ]
       ],
