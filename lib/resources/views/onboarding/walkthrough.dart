@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:monet/models/slide.dart';
 import 'package:monet/resources/app_colours.dart';
 import 'package:monet/resources/app_routes.dart';
+import 'package:monet/resources/app_spacing.dart';
 import 'package:monet/resources/app_strings.dart';
 import 'package:monet/resources/app_styles.dart';
 import 'package:monet/resources/views/components/ui/button.dart';
@@ -34,15 +35,15 @@ class _WalkthroughScreenState extends State<WalkthroughScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(child: pages()),
-          const SizedBox(height: 24),
+          AppSpacing.vertical(),
           Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
                 indicators(),
-                const SizedBox(height: 24),
+                AppSpacing.vertical(),
                 buttons(),
-                const SizedBox(height: 24)
+                AppSpacing.vertical(),
               ],
             ),
           )
@@ -71,7 +72,7 @@ class _WalkthroughScreenState extends State<WalkthroughScreen> {
                     ? AppColours.primaryColour
                     : AppColours.primaryColourLight),
           ),
-          if (i < _slides.length - 1) const SizedBox(height: 8),
+          if (i < _slides.length - 1) AppSpacing.horizontal(size: 8),
         ]
       ],
     );
@@ -84,10 +85,10 @@ class _WalkthroughScreenState extends State<WalkthroughScreen> {
             label: AppStrings.signUp,
             onPressed: () => Navigator.of(context).pushNamed(AppRoutes.signup)
         ),
-        const SizedBox(height: 16),
+        AppSpacing.vertical(size: 16),
         ButtonComponent(
             type: ButtonType.secondary,
-            label: AppStrings.logIn,
+            label: AppStrings.login,
             onPressed: () => Navigator.of(context).pushNamed(AppRoutes.login)
         ),
       ],
@@ -101,15 +102,15 @@ class _WalkthroughScreenState extends State<WalkthroughScreen> {
           padding: const EdgeInsets.all(24),
           shrinkWrap: true,
           children: [
-            const SizedBox(height: 48),
+            AppSpacing.vertical(size: 48),
             Center(
               child: Image.asset(_slides[index].image,
                   width: MediaQuery.of(context).size.width / 1.5),
             ),
-            const SizedBox(height: 24),
+            AppSpacing.vertical(),
             Text(_slides[index].title,
                 style: AppStyles.title1(), textAlign: TextAlign.center),
-            const SizedBox(height: 16),
+            AppSpacing.vertical(size: 16),
             Text(_slides[index].description,
                 style: AppStyles.regular1(
                     color: AppColours.light20, weight: FontWeight.w500),
