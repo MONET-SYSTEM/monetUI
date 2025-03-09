@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:monet/resources/app_colours.dart';
-import 'package:monet/resources/app_routes.dart';
 import 'package:monet/resources/app_strings.dart';
 import 'package:monet/resources/app_styles.dart';
+import 'package:monet/utils/helper.dart';
+
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _State();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _State extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColours.primaryColour,
       body: Center(
-        child: Text(AppStrings.appName, style: AppStyles.titleX(size: 56, color: Colors.white),),
+        child: Text(AppStrings.appName,
+            style: AppStyles.titleX(size: 56, color: Colors.white)),
       ),
     );
   }
@@ -28,9 +30,8 @@ class _State extends State<SplashScreen> {
     super.initState();
   }
 
-  void initApp() {
-    Future.delayed(
-        const Duration(seconds: 2),
-            () => Navigator.of(context).pushReplacementNamed(AppRoutes.walkThrough));
+  Future<void> initApp() async {
+    final route = await Helper.initialRoute();
+    Future.delayed(const Duration(seconds: 3), () => Navigator.of(context).pushReplacementNamed(route));
   }
 }
