@@ -1,5 +1,5 @@
 class ApiRoutes {
-  static String baseUrl = 'http://192.168.5.248:8001//api';
+  static String baseUrl = 'http://192.168.5.248:8001/api';
   static String registerUrl = '$baseUrl/register';
   static String loginUrl = '$baseUrl/login';
   static String otpUrl = '$baseUrl/otp';
