@@ -6,9 +6,9 @@ import 'package:monet/resources/app_spacing.dart';
 import 'package:monet/resources/app_strings.dart';
 import 'package:monet/resources/app_styles.dart';
 import 'package:monet/utils/helper.dart';
-import 'package:monet/resources/views/components/form/text_signup.dart';
-import 'package:monet/resources/views/components/ui/app_bar.dart';
-import 'package:monet/resources/views/components/ui/button.dart';
+import 'package:monet/views/components/form/text_signup.dart';
+import 'package:monet/views/components/ui/app_bar.dart';
+import 'package:monet/views/components/ui/button.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -20,11 +20,9 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailEditingController = TextEditingController();
-
   final _emailFocus = FocusNode();
 
   bool _isLoading = false;
-
   Map<String, dynamic> _errors = {};
 
   @override
@@ -38,8 +36,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           padding: const EdgeInsets.all(24),
           children: [
             AppSpacing.vertical(size: 48),
-            Text(AppStrings.forgotPasswordHint,
-                style: AppStyles.medium(size: 24)),
+            Text(
+              AppStrings.forgotPasswordHint,
+              style: AppStyles.medium(size: 24),
+            ),
             AppSpacing.vertical(size: 48),
             Form(
               key: _formKey,
@@ -51,16 +51,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 focusNode: _emailFocus,
                 label: AppStrings.emailAddress,
                 textEditingController: _emailEditingController,
-                onFieldSubmitted: (value) =>
-                    FocusScope.of(context).unfocus(),
+                onFieldSubmitted: (value) => FocusScope.of(context).unfocus(),
                 textInputAction: TextInputAction.next,
               ),
             ),
             AppSpacing.vertical(size: 32),
             ButtonComponent(
-                isLoading: _isLoading,
-                label: AppStrings.continueText,
-                onPressed: _handleContinue),
+              isLoading: _isLoading,
+              label: AppStrings.continueText,
+              onPressed: _handleContinue,
+            ),
             AppSpacing.vertical(),
           ],
         ),
@@ -72,7 +72,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   void dispose() {
     _emailEditingController.dispose();
     _emailFocus.dispose();
-
     super.dispose();
   }
 
@@ -86,18 +85,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
 
     setState(() => _isLoading = true);
-    final result = await AuthController.resetOtp(_emailEditingController.text.trim());
+
+    final result =
+    await AuthController.resetOtp(_emailEditingController.text.trim());
+
+    // If the widget was disposed while awaiting resetOtp, stop here
+    if (!mounted) return;
+
     setState(() => _isLoading = false);
 
     if (!result.isSuccess) {
       Helper.snackBar(context, message: result.message, isSuccess: false);
+
       if (result.errors != null) {
         setState(() => _errors = result.errors!);
       }
-
       return;
     }
 
-    Navigator.of(context).pushNamed(AppRoutes.forgotPasswordSent, arguments: _emailEditingController.text.trim());
+    Navigator.of(context).pushNamed(
+      AppRoutes.forgotPasswordSent,
+      arguments: _emailEditingController.text.trim(),
+    );
   }
 }

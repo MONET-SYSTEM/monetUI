@@ -4,7 +4,7 @@ import 'package:monet/resources/app_colours.dart';
 import 'package:monet/resources/app_routes.dart';
 import 'package:monet/resources/app_strings.dart';
 import 'package:monet/utils/helper.dart';
-import 'package:monet/resources/views/components/ui/app_bar.dart';
+import 'package:monet/views/components/ui/app_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

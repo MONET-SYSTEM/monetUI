@@ -10,8 +10,8 @@ import 'package:monet/resources/app_strings.dart';
 import 'package:monet/resources/app_styles.dart';
 import 'package:monet/services/auth_service.dart';
 import 'package:monet/utils/helper.dart';
-import 'package:monet/resources/views/components/ui/app_bar.dart';
-import 'package:monet/resources/views/components/ui/button.dart';
+import 'package:monet/views/components/ui/app_bar.dart';
+import 'package:monet/views/components/ui/button.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});

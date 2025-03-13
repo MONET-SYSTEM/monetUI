@@ -5,9 +5,9 @@ import 'package:monet/resources/app_routes.dart';
 import 'package:monet/resources/app_spacing.dart';
 import 'package:monet/resources/app_strings.dart';
 import 'package:monet/utils/helper.dart';
-import 'package:monet/resources/views/components/form/text_signup.dart';
-import 'package:monet/resources/views/components/ui/app_bar.dart';
-import 'package:monet/resources/views/components/ui/button.dart';
+import 'package:monet/views/components/form/text_signup.dart';
+import 'package:monet/views/components/ui/app_bar.dart';
+import 'package:monet/views/components/ui/button.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});

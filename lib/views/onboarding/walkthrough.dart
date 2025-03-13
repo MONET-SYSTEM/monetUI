@@ -5,7 +5,7 @@ import 'package:monet/resources/app_routes.dart';
 import 'package:monet/resources/app_spacing.dart';
 import 'package:monet/resources/app_strings.dart';
 import 'package:monet/resources/app_styles.dart';
-import 'package:monet/resources/views/components/ui/button.dart';
+import 'package:monet/views/components/ui/button.dart';
 
 class WalkthroughScreen extends StatefulWidget {
   const WalkthroughScreen({super.key});

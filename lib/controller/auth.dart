@@ -3,7 +3,7 @@ import 'package:monet/models/user.dart';
 import 'package:monet/resources/app_strings.dart';
 import 'package:monet/services/api.dart';
 import 'package:monet/services/api_routes.dart';
-import 'package:monet/services/result.dart';
+import 'package:monet/models/result.dart';
 import 'package:monet/services/auth_service.dart';
 
 class AuthController {
