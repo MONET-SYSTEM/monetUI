@@ -15,14 +15,20 @@ class AuthController {
         'password': password
       });
 
-      final results = response.data['results'];
-      final userModel = await AuthService.create(results['user'], results['token']);
+      if (response.data == null) {
+        return Result(isSuccess: false, message: "Empty response from server");
+      }
 
-      return Result(isSuccess: true, message: response.data['message'], results: userModel);
-    }  on DioException catch (e) {
+      final result = response.data['result'];
+      if (result == null) {
+        return Result(isSuccess: false, message: "Invalid response format from server");
+      }
+
+      final userModel = await AuthService.create(result['user'], result['token']);
+      return Result(isSuccess: true, message: response.data['message'] ?? "Registration successful", results: userModel);
+    } on DioException catch (e) {
       final message = ApiService.errorMessage(e);
-      final errors = e.response?.data['errors'];
-
+      final errors = e.response?.data?['errors'];
       return Result(isSuccess: false, message: message, errors: errors);
     } catch (e) {
       return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
@@ -36,14 +42,20 @@ class AuthController {
         'password': password
       });
 
-      final results = response.data['results'];
-      final userModel = await AuthService.create(results['user'], results['token']);
+      if (response.data == null) {
+        return Result(isSuccess: false, message: "Empty response from server");
+      }
 
-      return Result(isSuccess: true, message: response.data['message'], results: userModel);
-    }  on DioException catch (e) {
+      final result = response.data['result'];
+      if (result == null) {
+        return Result(isSuccess: false, message: "Invalid response format from server");
+      }
+
+      final userModel = await AuthService.create(result['user'], result['token']);
+      return Result(isSuccess: true, message: response.data['message'] ?? "Login successful", results: userModel);
+    } on DioException catch (e) {
       final message = ApiService.errorMessage(e);
-      final errors = e.response?.data['errors'];
-
+      final errors = e.response?.data?['errors'];
       return Result(isSuccess: false, message: message, errors: errors);
     } catch (e) {
       return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
@@ -53,14 +65,17 @@ class AuthController {
   static Future<Result> logout() async {
     try {
       final response = await ApiService.post(ApiRoutes.logoutUrl, {});
-
       await AuthService.delete();
 
-      return Result(isSuccess: true, message: response.data['message']);
-    }  on DioException catch (e) {
-      final message = ApiService.errorMessage(e);
-      final errors = e.response?.data['errors'];
+      String message = "Logout successful";
+      if (response.data != null && response.data['message'] != null) {
+        message = response.data['message'];
+      }
 
+      return Result(isSuccess: true, message: message);
+    } on DioException catch (e) {
+      final message = ApiService.errorMessage(e);
+      final errors = e.response?.data?['errors'];
       return Result(isSuccess: false, message: message, errors: errors);
     } catch (e) {
       return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
@@ -73,14 +88,20 @@ class AuthController {
         'otp': otp
       });
 
-      final results = response.data['results'];
-      final userModel = await AuthService.update(results['user']);
+      if (response.data == null) {
+        return Result(isSuccess: false, message: "Empty response from server");
+      }
 
-      return Result(isSuccess: true, message: response.data['message'], results: userModel);
-    }  on DioException catch (e) {
+      final result = response.data['result'];
+      if (result == null) {
+        return Result(isSuccess: false, message: "Invalid response format from server");
+      }
+
+      final userModel = await AuthService.update(result['user']);
+      return Result(isSuccess: true, message: response.data['message'] ?? "Verification successful", results: userModel);
+    } on DioException catch (e) {
       final message = ApiService.errorMessage(e);
-      final errors = e.response?.data['errors'];
-
+      final errors = e.response?.data?['errors'];
       return Result(isSuccess: false, message: message, errors: errors);
     } catch (e) {
       return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
@@ -91,12 +112,15 @@ class AuthController {
     try {
       final response = await ApiService.post(ApiRoutes.otpUrl, {});
 
-      return Result(isSuccess: true, message: response.data['message']);
+      String message = "OTP sent successfully";
+      if (response.data != null && response.data['message'] != null) {
+        message = response.data['message'];
+      }
 
-    }  on DioException catch (e) {
+      return Result(isSuccess: true, message: message);
+    } on DioException catch (e) {
       final message = ApiService.errorMessage(e);
-      final errors = e.response?.data['errors'];
-
+      final errors = e.response?.data?['errors'];
       return Result(isSuccess: false, message: message, errors: errors);
     } catch (e) {
       return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
@@ -109,12 +133,15 @@ class AuthController {
         'email': email
       });
 
-      return Result(isSuccess: true, message: response.data['message']);
+      String message = "Reset OTP sent successfully";
+      if (response.data != null && response.data['message'] != null) {
+        message = response.data['message'];
+      }
 
-    }  on DioException catch (e) {
+      return Result(isSuccess: true, message: message);
+    } on DioException catch (e) {
       final message = ApiService.errorMessage(e);
-      final errors = e.response?.data['errors'];
-
+      final errors = e.response?.data?['errors'];
       return Result(isSuccess: false, message: message, errors: errors);
     } catch (e) {
       return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
@@ -130,12 +157,15 @@ class AuthController {
         'password_confirmation': passwordConfirmation,
       });
 
-      return Result(isSuccess: true, message: response.data['message']);
+      String message = "Password reset successfully";
+      if (response.data != null && response.data['message'] != null) {
+        message = response.data['message'];
+      }
 
-    }  on DioException catch (e) {
+      return Result(isSuccess: true, message: message);
+    } on DioException catch (e) {
       final message = ApiService.errorMessage(e);
-      final errors = e.response?.data['errors'];
-
+      final errors = e.response?.data?['errors'];
       return Result(isSuccess: false, message: message, errors: errors);
     } catch (e) {
       return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
@@ -144,11 +174,10 @@ class AuthController {
 
   static Future<Result> setPin(String pin) async {
     try {
-      final user = AuthService.setPin(pin);
-      return Result(isSuccess: true, message: "");
+      await AuthService.setPin(pin);
+      return Result(isSuccess: true, message: "PIN set successfully");
     } catch (e) {
       return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
     }
   }
-
 }
