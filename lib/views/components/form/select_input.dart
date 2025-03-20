@@ -11,9 +11,10 @@ class SelectInputComponent<T> extends StatefulWidget {
   final FocusNode? focusNode;
   final List<T> items;
   final T? selectedItem;
-  final Function(T?) onChanged;
+  final Function(T? value) onChanged;
+  final bool Function(T, T)? compareFn;
 
-  const SelectInputComponent({super.key, required this.label, this.onFieldSubmitted, this.focusNode, this.isRequired = false, this.isEnabled = true, this.error, required this.items, required this.onChanged, this.selectedItem});
+  const SelectInputComponent({super.key, required this.label, this.onFieldSubmitted, this.focusNode, this.isRequired = false, this.isEnabled = true, this.error, required this.items, required this.onChanged, this.selectedItem, this.compareFn});
 
   @override
   State<SelectInputComponent<T>> createState() => _SelectInputComponentState<T>();
@@ -25,10 +26,11 @@ class _SelectInputComponentState<T> extends State<SelectInputComponent<T>> {
   @override
   Widget build(BuildContext context) {
     return DropdownSearch<T>(
-      popupProps: const PopupProps.bottomSheet(
+      popupProps: const PopupProps.modalBottomSheet(
         showSelectedItems: true,
       ),
       items: widget.items,
+      compareFn: widget.compareFn,
       dropdownDecoratorProps: DropDownDecoratorProps(
         dropdownSearchDecoration: InputDecoration(
           labelText: widget.label,

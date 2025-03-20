@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:monet/models/currency.dart';
 import 'package:monet/models/user.dart';
 import 'package:monet/resources/app_colours.dart';
 import 'package:monet/resources/app_routes.dart';
@@ -21,6 +22,7 @@ import 'package:monet/views/onboarding/walkthrough.dart';
 Future<void> main() async {
   await Hive.initFlutter();
   Hive.registerAdapter(UserModelAdapter());
+  Hive.registerAdapter(CurrencyModelAdapter());
   runApp(const MyApp());
 }
 
