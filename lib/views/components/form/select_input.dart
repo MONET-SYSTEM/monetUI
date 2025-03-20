@@ -1,6 +1,7 @@
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:monet/resources/app_colours.dart';
+import 'package:monet/resources/app_strings.dart';
 
 class SelectInputComponent<T> extends StatefulWidget {
   final bool isRequired;
@@ -13,8 +14,9 @@ class SelectInputComponent<T> extends StatefulWidget {
   final T? selectedItem;
   final Function(T? value) onChanged;
   final bool Function(T, T)? compareFn;
+  final bool? showSearchBox;
 
-  const SelectInputComponent({super.key, required this.label, this.onFieldSubmitted, this.focusNode, this.isRequired = false, this.isEnabled = true, this.error, required this.items, required this.onChanged, this.selectedItem, this.compareFn});
+  const SelectInputComponent({super.key, required this.label, this.onFieldSubmitted, this.focusNode, this.isRequired = false, this.isEnabled = true, this.error, required this.items, required this.onChanged, this.selectedItem, this.compareFn, this.showSearchBox});
 
   @override
   State<SelectInputComponent<T>> createState() => _SelectInputComponentState<T>();
@@ -26,8 +28,10 @@ class _SelectInputComponentState<T> extends State<SelectInputComponent<T>> {
   @override
   Widget build(BuildContext context) {
     return DropdownSearch<T>(
-      popupProps: const PopupProps.modalBottomSheet(
+      popupProps: PopupProps.modalBottomSheet(
         showSelectedItems: true,
+        showSearchBox: widget.showSearchBox ?? false,
+        searchFieldProps: const TextFieldProps(padding: EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 24))
       ),
       items: widget.items,
       compareFn: widget.compareFn,
@@ -51,6 +55,14 @@ class _SelectInputComponentState<T> extends State<SelectInputComponent<T>> {
       ),
       onChanged: widget.onChanged,
       selectedItem: widget.selectedItem,
+      autoValidateMode: AutovalidateMode.onUserInteraction,
+      validator: (value) {
+        if(widget.isRequired && value == null) {
+          return AppStrings.inputIsRequired.replaceAll(":input", widget.label);
+        }
+        return null;
+      },
+      enabled: widget.isEnabled,
     );
   }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:monet/models/account.dart';
+import 'package:monet/models/account_type.dart';
 import 'package:monet/models/currency.dart';
 import 'package:monet/models/user.dart';
 import 'package:monet/resources/app_colours.dart';
@@ -23,6 +25,8 @@ Future<void> main() async {
   await Hive.initFlutter();
   Hive.registerAdapter(UserModelAdapter());
   Hive.registerAdapter(CurrencyModelAdapter());
+  Hive.registerAdapter(AccountTypeModelAdapter());
+  Hive.registerAdapter(AccountModelAdapter());
   runApp(const MyApp());
 }
 

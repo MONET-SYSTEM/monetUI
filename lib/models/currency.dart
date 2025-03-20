@@ -34,6 +34,20 @@ class CurrencyModel{
 
   static String currencyBox = 'currencies';
 
+  static CurrencyModel fromMap(Map<String, dynamic> currency) {
+    var currencyModel = CurrencyModel();
+    currencyModel.id = currency['id'];
+    currencyModel.name = currency['name'];
+    currencyModel.code = currency['code'];
+    currencyModel.symbol = currency['symbol'];
+    currencyModel.symbolPosition = currency['symbol_position'];
+    currencyModel.thousandSeparator = currency['thousand_separator'] ;
+    currencyModel.decimalSeparator = currency['decimal_separator'] ;
+    currencyModel.decimalPlaces = currency['decimal_places'] ;
+    currencyModel.sample = currency['sample'];
+    return currencyModel;
+  }
+
   bool isEqual(CurrencyModel model) {
     return id == model.id;
   }

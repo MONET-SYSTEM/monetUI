@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:monet/controller/account.dart';
 import 'package:monet/models/user.dart';
 import 'package:monet/resources/app_strings.dart';
+import 'package:monet/services/account_service.dart';
 import 'package:monet/services/api.dart';
 import 'package:monet/services/api_routes.dart';
 import 'package:monet/models/result.dart';
@@ -52,6 +54,10 @@ class AuthController {
       }
 
       final userModel = await AuthService.create(result['user'], result['token']);
+
+      // TODO: Improve Load Account
+      await AccountController.load();
+
       return Result(isSuccess: true, message: response.data['message'] ?? "Login successful", results: userModel);
     } on DioException catch (e) {
       final message = ApiService.errorMessage(e);
@@ -66,6 +72,7 @@ class AuthController {
     try {
       final response = await ApiService.post(ApiRoutes.logoutUrl, {});
       await AuthService.delete();
+      await AccountService.delete();
 
       String message = "Logout successful";
       if (response.data != null && response.data['message'] != null) {
