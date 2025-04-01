@@ -43,7 +43,7 @@ class AccountController {
       if (result == null) {
         return Result(isSuccess: false, message: "Invalid response format from server");
       }
-      print(result['account']);
+      print(result['accounts']);
       final accounts = await AccountService.createAccount(result['accounts']);
 
       return Result(isSuccess: true, message: response.data['message'], results: accounts);
