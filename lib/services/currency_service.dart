@@ -26,4 +26,41 @@ class CurrencyService {
     }
     return currencyModels;
   }
+
+  // Add update method
+  static Future<CurrencyModel?> update(String id, Map<String, dynamic> updatedCurrency) async {
+    final currencyBox = await Hive.openBox(CurrencyModel.currencyBox);
+
+    if (currencyBox.containsKey(id)) {
+      var currencyModel = CurrencyModel.fromMap(updatedCurrency);
+      await currencyBox.put(id, currencyModel);
+      return currencyModel;
+    }
+
+    return null;
+  }
+
+  // Add get method to retrieve specific currency
+  static Future<CurrencyModel?> get(String id) async {
+    final currencyBox = await Hive.openBox(CurrencyModel.currencyBox);
+    return currencyBox.get(id);
+  }
+
+  // Add getAll method to retrieve all currencies
+  static Future<List<CurrencyModel>> getAll() async {
+    final currencyBox = await Hive.openBox(CurrencyModel.currencyBox);
+    return currencyBox.values.cast<CurrencyModel>().toList();
+  }
+
+  // Add delete method
+  static Future<bool> delete(String id) async {
+    final currencyBox = await Hive.openBox(CurrencyModel.currencyBox);
+
+    if (currencyBox.containsKey(id)) {
+      await currencyBox.delete(id);
+      return true;
+    }
+
+    return false;
+  }
 }
