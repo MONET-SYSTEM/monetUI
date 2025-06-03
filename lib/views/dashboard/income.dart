@@ -1,0 +1,854 @@
+import 'package:flutter/material.dart';
+import 'package:monet/controller/account.dart';
+import 'package:monet/models/account.dart';
+import 'package:monet/resources/app_colours.dart';
+import 'package:monet/resources/app_styles.dart';
+import 'package:monet/resources/app_spacing.dart';
+import 'package:monet/models/category.dart';
+import 'package:monet/controller/category.dart';
+import '../../controller/transaction.dart';
+
+class IncomeScreen extends StatefulWidget {
+  const IncomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<IncomeScreen> createState() => _IncomeScreenState();
+}
+
+class _IncomeScreenState extends State<IncomeScreen> {
+  TextEditingController amountController = TextEditingController(text: '0');
+  CategoryModel? selectedCategory;
+  TextEditingController descriptionController = TextEditingController();
+  TextEditingController searchController = TextEditingController();
+  bool repeatTransaction = false;
+  bool isLoading = true;
+  List<CategoryModel> categories = [];
+  List<CategoryModel> filteredCategories = [];
+  List<AccountModel> accounts = [];
+  AccountModel? selectedAccount;
+  String selectedCurrencySymbol = '\$'; // Default
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+    _loadAccounts();
+    searchController.addListener(_filterCategories);
+  }
+
+  @override
+  void dispose() {
+    searchController.removeListener(_filterCategories);
+    searchController.dispose();
+    amountController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAccounts() async {
+    try {
+      final result = await AccountController.load();
+      if (result.isSuccess && result.results != null) {
+        setState(() {
+          accounts = result.results!;
+          if (accounts.isNotEmpty) {
+            selectedAccount = accounts[0];
+            selectedCurrencySymbol = selectedAccount!.currency.symbol;
+          }
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to load accounts: ${result.message}")),
+        );
+      }
+    } catch (e) {
+      print("Error loading accounts: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error loading accounts: $e")),
+      );
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final result = await CategoryController.load();
+
+      if (result.isSuccess) {
+        if (result.results != null && result.results is List) {
+          setState(() {
+            // Filter for income categories
+            categories = result.results.where((category) =>
+            category.type.toLowerCase() == 'income').toList();
+            filteredCategories = List.from(categories);
+            print("Loaded ${categories.length} income categories directly from result");
+          });
+        }
+      } else {
+        print("Failed to load categories: ${result.message}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to load categories: ${result.message}")),
+        );
+      }
+    } catch (e) {
+      print("Error loading categories: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error loading categories")),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  void _filterCategories() {
+    if (searchController.text.isEmpty) {
+      setState(() {
+        filteredCategories = List.from(categories);
+      });
+    } else {
+      setState(() {
+        filteredCategories = categories
+            .where((category) => category.name.toLowerCase().contains(searchController.text.toLowerCase()))
+            .toList();
+      });
+    }
+  }
+
+  IconData _getCategoryIcon(String? iconName) {
+    if (iconName == null || iconName.isEmpty) {
+      return Icons.category;
+    }
+
+    switch (iconName.toLowerCase()) {
+      case 'salary':
+        return Icons.work;
+      case 'freelance':
+        return Icons.computer;
+      case 'investment':
+        return Icons.trending_up;
+      case 'dividend':
+        return Icons.attach_money;
+      case 'gift':
+        return Icons.card_giftcard;
+      case 'refund':
+        return Icons.replay;
+      case 'bonus':
+        return Icons.stars;
+      case 'interest':
+        return Icons.money;
+      case 'rental':
+        return Icons.home;
+      case 'side hustle':
+        return Icons.business_center;
+      case 'other':
+        return Icons.more_horiz;
+      default:
+        return Icons.category;
+    }
+  }
+
+  IconData _getAccountTypeIcon(String accountType) {
+    switch (accountType.toLowerCase()) {
+      case 'cash':
+        return Icons.money;
+      case 'bank':
+      case 'bank account':
+        return Icons.account_balance;
+      case 'credit card':
+        return Icons.credit_card;
+      case 'e-wallet':
+        return Icons.wallet;
+      default:
+        return Icons.account_balance_wallet;
+    }
+  }
+
+  Widget _buildCategoryItem(CategoryModel category) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedCategory = category;
+          Navigator.pop(context);
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(right: 12, bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF00A86B),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _getCategoryIcon(category.icon),
+              color: Colors.white,
+              size: 24,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              category.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCreateCategoryDialog() {
+    final TextEditingController categoryNameController = TextEditingController();
+    final TextEditingController iconNameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Create New Income Category'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: categoryNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Category Name',
+                  hintText: 'e.g., Freelance, Bonus',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: iconNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Icon Name (Optional)',
+                  hintText: 'e.g., salary, investment, gift',
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Available icons: salary, freelance, investment, dividend, gift, refund, bonus, interest, rental, side hustle, other',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00A86B),
+              ),
+              onPressed: () async {
+                if (categoryNameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please enter a category name")),
+                  );
+                  return;
+                }
+
+                setState(() {
+                  isLoading = true;
+                });
+                Navigator.pop(context); // Close dialog
+
+                try {
+                  final result = await CategoryController.createCategory(
+                    name: categoryNameController.text.trim(),
+                    type: 'income',
+                    icon: iconNameController.text.trim().isNotEmpty ? iconNameController.text.trim() : null,
+                  );
+
+                  if (result.isSuccess && result.results != null) {
+                    setState(() {
+                      // Add the new category to the list
+                      CategoryModel newCategory = result.results;
+                      categories.add(newCategory);
+                      filteredCategories = List.from(categories);
+                      selectedCategory = newCategory; // Select the new category
+                    });
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Category '${categoryNameController.text}' created successfully")),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Failed to create category: ${result.message}")),
+                    );
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Error creating category: $e")),
+                  );
+                } finally {
+                  setState(() {
+                    isLoading = false;
+                  });
+                }
+              },
+              child: const Text('Create', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showCategorySelector(BuildContext context) {
+    searchController.clear();
+    _filterCategories();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Container(
+              padding: const EdgeInsets.all(20),
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Select Category', style: AppStyles.medium(size: 18)),
+                  const SizedBox(height: 16),
+
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search categories',
+                        prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                      ),
+                      onChanged: (_) {
+                        _filterCategories();
+                        setState(() {});
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Expanded(
+                    child: filteredCategories.isEmpty
+                        ? const Center(child: Text("No matching categories found"))
+                        : ListView.separated(
+                      itemCount: filteredCategories.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final category = filteredCategories[index];
+                        return ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00A86B).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              _getCategoryIcon(category.icon),
+                              color: const Color(0xFF00A86B),
+                              size: 24,
+                            ),
+                          ),
+                          title: Text(
+                            category.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          onTap: () {
+                            this.setState(() {
+                              selectedCategory = category;
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _showCreateCategoryDialog,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00A86B),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      elevation: 0,
+                      minimumSize: const Size(double.infinity, 54),
+                    ),
+                    child: const Text(
+                      'Other Category',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showWalletSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Select Account Type', style: AppStyles.bold(size: 20)),
+              AppSpacing.vertical(size: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: accounts.length,
+                  itemBuilder: (context, index) {
+                    final account = accounts[index];
+                    final formattedBalance = account.currentBalanceText.replaceAll(account.currency.symbol, '').trim();
+
+                    return ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(_getAccountTypeIcon(account.accountType.name)),
+                      ),
+                      title: Text(account.name),
+                      subtitle: Text(
+                        '${account.currency.symbol}${formattedBalance}',
+                        style: const TextStyle(color: Color(0xFF00A86B)),
+                      ),
+                      onTap: () {
+                        setState(() {
+                          selectedAccount = account;
+                          selectedCurrencySymbol = account.currency.symbol;
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _saveIncome() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // Validate required fields
+      if (selectedAccount == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select an account")),
+        );
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Parse and validate amount
+      double amount;
+      try {
+        // Remove any currency symbols or commas
+        String sanitizedAmount = amountController.text.replaceAll(RegExp(r'[^0-9.]'), '');
+        amount = double.parse(sanitizedAmount);
+        if (amount <= 0) {
+          throw FormatException("Amount must be greater than zero");
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please enter a valid amount")),
+        );
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      // Format today's date for transaction
+      final today = DateTime.now();
+      final formattedDate = "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
+
+      // Save the transaction
+      final result = await TransactionController.saveTransaction(
+        accountId: selectedAccount!.id,
+        type: "income", // Important: Set type as income
+        amount: amount,
+        categoryId: selectedCategory?.id,
+        description: descriptionController.text,
+        transaction_date: formattedDate,
+        is_reconciled: true,
+        repeat: repeatTransaction,
+      );
+
+      if (result.isSuccess && result.results != null) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Income added successfully")),
+        );
+        Navigator.of(context).pop(); // Return to previous screen
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to add income: ${result.message}")),
+        );
+      }
+    } catch (e) {
+      print("Error saving income: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error saving income: $e")),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          // Green header section for income
+          Container(
+            color: const Color(0xFF00A86B),
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // App bar row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        const Spacer(),
+                        const Text(
+                          'Income',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        // blank to balance
+                        const SizedBox(width: 48),
+                      ],
+                    ),
+                  ),
+
+                  // How much? + amount
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24)
+                        .copyWith(top: 24, bottom: 40),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'How much?',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              selectedCurrencySymbol,
+                              style: AppStyles.bold(color: Colors.white, size: 40),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: amountController,
+                                decoration: const InputDecoration(
+                                  hintText: '0',
+                                  hintStyle: TextStyle(
+                                    fontSize: 48,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 48,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // White form area
+          Expanded(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                children: [
+                  // Category
+                  GestureDetector(
+                    onTap: () => _showCategorySelector(context),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: ListTile(
+                        title: Text(
+                          selectedCategory?.name ?? 'Select Category',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: selectedCategory == null ? Colors.grey.shade400 : Colors.black87,
+                          ),
+                        ),
+                        trailing: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade400),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Description
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: TextField(
+                      controller: descriptionController,
+                      decoration: InputDecoration(
+                        hintText: 'Description',
+                        hintStyle: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade400,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Account/Wallet
+                  GestureDetector(
+                    onTap: () => _showWalletSelector(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            selectedAccount == null
+                                ? Icons.account_balance_wallet
+                                : _getAccountTypeIcon(selectedAccount!.accountType.name),
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              selectedAccount == null
+                                  ? 'Select Account Type'
+                                  : '${selectedAccount!.name} (${selectedAccount!.accountType.name})',
+                              style: TextStyle(
+                                color: selectedAccount == null ? Colors.grey.shade500 : Colors.black87,
+                              ),
+                            ),
+                          ),
+                          if (selectedAccount != null)
+                            Text(
+                              '${selectedAccount!.currency.symbol}${selectedAccount!.currentBalance.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                color: Color(0xFF00A86B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Attachment
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: ListTile(
+                      leading: Icon(Icons.attach_file_outlined, color: Colors.grey.shade500),
+                      title: Text(
+                        'Add attachment',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      onTap: () {/* pick file */},
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Repeat
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: ListTile(
+                      title: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Repeat',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Repeat transaction',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing: Switch(
+                        value: repeatTransaction,
+                        onChanged: (v) => setState(() => repeatTransaction = v),
+                        activeColor: AppColours.primaryColour,
+                        inactiveTrackColor: Colors.grey.shade300,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Continue button
+          SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ElevatedButton(
+                    onPressed: _saveIncome,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00A86B),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      elevation: 0,
+                      minimumSize: const Size(double.infinity, 54),
+                    ),
+                    child: const Text(
+                      'Continue',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Bottom indicator line
+                Container(
+                  height: 4,
+                  width: 36,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

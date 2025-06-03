@@ -3,11 +3,14 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:monet/models/account.dart';
 import 'package:monet/models/account_type.dart';
 import 'package:monet/models/currency.dart';
+import 'package:monet/models/currency_transfer.dart';
+import 'package:monet/models/transaction.dart';
 import 'package:monet/models/user.dart';
 import 'package:monet/resources/app_colours.dart';
 import 'package:monet/resources/app_routes.dart';
 import 'package:monet/resources/app_strings.dart';
 import 'package:monet/views/account/add_account.dart';
+import 'package:monet/views/account/edit_account.dart';
 import 'package:monet/views/account/setup_account.dart';
 import 'package:monet/views/auth/forgot_password.dart';
 import 'package:monet/views/auth/forgot_password_sent.dart';
@@ -17,9 +20,11 @@ import 'package:monet/views/auth/setup_pin.dart';
 import 'package:monet/views/auth/signup.dart';
 import 'package:monet/views/auth/signup_success.dart';
 import 'package:monet/views/auth/verification.dart';
-import 'package:monet/views/home.dart';
+import 'package:monet/views/dashboard/home.dart';
 import 'package:monet/views/onboarding/splash_screen.dart';
 import 'package:monet/views/onboarding/walkthrough.dart';
+import 'models/category.dart';
+import 'models/transaction_attachment.dart';
 
 Future<void> main() async {
   await Hive.initFlutter();
@@ -27,6 +32,10 @@ Future<void> main() async {
   Hive.registerAdapter(CurrencyModelAdapter());
   Hive.registerAdapter(AccountTypeModelAdapter());
   Hive.registerAdapter(AccountModelAdapter());
+  Hive.registerAdapter(CategoryModelAdapter());
+  Hive.registerAdapter(TransactionModelAdapter());
+  Hive.registerAdapter(CurrencyTransferModelAdapter());
+  Hive.registerAdapter(TransactionAttachmentModelAdapter());
   runApp(const MyApp());
 }
 
@@ -58,6 +67,10 @@ class MyApp extends StatelessWidget {
         AppRoutes.setupAccount: (context) => const SetupAccountScreen(),
         AppRoutes.addAccount: (context) => const AddAccountScreen(),
         AppRoutes.signupSuccess: (context) => const SignupSuccessScreen(),
+        AppRoutes.editAccount: (context) {
+          final account = ModalRoute.of(context)!.settings.arguments as AccountModel;
+          return EditAccountScreen(account: account);
+        },
       },
     );
   }
