@@ -49,4 +49,22 @@ class AppStrings {
   static String currency = 'Currency';
   static String accountType = 'Account Type';
   static String youAreSet = 'You are set!';
+  static String accountNameLabel = 'Account Name';
+  static String accountNameHint = 'Enter your account name';
+  static String accountTypeLabel = 'Account Type';
+  static String accountTypeHint = 'Select your account type';
+  static String currencyLabel = 'Currency';
+  static String currencyHint = 'Select your currency';
+  static String accountSetupSuccess = 'Account setup successfully';
+  static String accountSetupSuccessHint = 'You can now add transactions to your account';
+  static String accountUpdated = 'Account updated successfully';
+  static String accountDeleted = 'Account deleted successfully';
+  static String accountDeletedHint = 'You can now add a new account';
+  static String editAccount = 'Edit Account';
+  static String editAccountHint = 'Edit your account details below';
+  static String accountSetup = 'Account Setup';
+  static String accountSetupHint = 'Setup your account details below';
+  static String accountSetupTitle = 'Account Setup';
+  static String accountSetupSubtitle = 'Setup your account details below';
+  static String accountSetupButton = 'Setup Account';
 }

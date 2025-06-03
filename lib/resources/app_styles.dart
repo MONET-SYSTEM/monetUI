@@ -38,4 +38,8 @@ class AppStyles {
 
   static TextStyle snackBar({double size = 18, Color color = Colors.white}) =>
       medium(size: size, color: color);
+
+  static TextStyle buttonText({double size = 16, Color color = Colors.white}) {
+    return TextStyle(color: color, fontSize: size, fontWeight: FontWeight.w600, letterSpacing: 0.5);
+  }
 }
