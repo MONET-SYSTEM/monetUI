@@ -35,8 +35,42 @@ class AccountService {
     return accountModel as AccountModel?;
   }
 
-  static Future delete() async {
+  static Future delete(String accountId) async {
     final accountBox = await Hive.openBox(AccountModel.accountBox);
     await accountBox.clear();
   }
+
+  static Future<AccountModel> update(Map<String, dynamic> account) async {
+    final accountBox = await Hive.openBox(AccountModel.accountBox);
+
+    final updatedAccount = AccountModel.fromMap(account);
+
+    // Find the existing account by ID
+    AccountModel? existingAccount;
+    int existingIndex = -1;
+
+    for (int i = 0; i < accountBox.length; i++) {
+      final acc = accountBox.getAt(i) as AccountModel;
+      if (acc.id == updatedAccount.id) {
+        existingAccount = acc;
+        existingIndex = i;
+        break;
+      }
+    }
+
+    if (existingIndex != -1) {
+      // Update existing account with the new data
+      // Make sure to completely replace the old account with the new one
+      await accountBox.putAt(existingIndex, updatedAccount);
+    } else {
+      // Add as new if not found
+      await accountBox.add(updatedAccount);
+    }
+
+    return updatedAccount;
+  }
+
+
+
 }
+

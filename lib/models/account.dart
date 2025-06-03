@@ -50,7 +50,10 @@ class AccountModel{
     accountModel.currentBalanceText = account['current_balance_text'];
 
     accountModel.colourCode = account['colour_code'];
-    accountModel.active = account['active'];
+    accountModel.active = account['active'] is bool
+        ? (account['active'] ? 1 : 0)
+        : account['active'];
+
     accountModel.currency = CurrencyModel.fromMap(account['currency']);
     accountModel.accountType = AccountTypeModel.fromMap(account['account_type']);
 
