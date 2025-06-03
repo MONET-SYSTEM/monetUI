@@ -49,19 +49,84 @@ class _ButtonComponentState extends State<ButtonComponent> {
               shape: RoundedRectangleBorder(
                   side: BorderSide(color: borderColour[widget.type]!),
                   borderRadius: BorderRadius.circular(16)),
-              backgroundColor: backgroundColour[widget.type]),
-          child: widget.isLoading ? CircularProgressIndicator(color: foregroundColour[widget.type]) : Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if(widget.icon != null) widget.icon!,
-              Text(
-                widget.label,
-                style: AppStyles.title3(color: foregroundColour[widget.type]!),
-              )
-            ],
-          )),
+              backgroundColor: backgroundColour[widget.type],
+              foregroundColor: foregroundColour[widget.type]),
+          child: widget.isLoading
+              ? const Center(
+                  child: SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      strokeWidth: 2,
+                    ),
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (widget.icon != null) ...[
+                      widget.icon!,
+                      const SizedBox(width: 10),
+                    ],
+                    Text(
+                      widget.label,
+                      style: AppStyles.buttonText(color: Colors.white),
+                    ),
+                  ],
+                )),
     );
   }
 }
 
 enum ButtonType { primary, secondary, light }
+
+class AppButton extends StatelessWidget {
+  final String title;
+  final VoidCallback onPressed;
+  final bool isLoading;
+  final Color? backgroundColor;
+
+  const AppButton({
+    Key? key,
+    required this.title,
+    required this.onPressed,
+    this.isLoading = false,
+    this.backgroundColor,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    ButtonType buttonType = ButtonType.primary;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+          onPressed: isLoading ? null : onPressed,
+          style: ElevatedButton.styleFrom(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              backgroundColor: backgroundColor ?? AppColours.primaryColour,
+              foregroundColor: Colors.white),
+          child: isLoading
+              ? const Center(
+                  child: SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      strokeWidth: 2,
+                    ),
+                  ),
+                )
+              : Text(
+                  title,
+                  style: AppStyles.buttonText(color: Colors.white),
+                ),
+      ),
+    );
+  }
+}

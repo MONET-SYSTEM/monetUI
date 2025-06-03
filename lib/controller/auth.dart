@@ -72,7 +72,7 @@ class AuthController {
     try {
       final response = await ApiService.post(ApiRoutes.logoutUrl, {});
       await AuthService.delete();
-      await AccountService.delete();
+      await AccountService.delete("");
 
       String message = "Logout successful";
       if (response.data != null && response.data['message'] != null) {
