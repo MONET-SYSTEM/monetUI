@@ -46,6 +46,7 @@ class ApiService {
   // get
   static Future<Response> get(String url, Map<String, dynamic> params) async {
     final user = await AuthService.get();
+    print('[ApiService] Using token: \'${user?.token}\''); // Debug print
     final response = await dio.get(url, queryParameters: params, options: Options(headers: {
       'Accept': 'application/json',
       'Authorization': 'Bearer ${user?.token}'

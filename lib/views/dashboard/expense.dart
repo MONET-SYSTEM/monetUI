@@ -7,9 +7,6 @@ import 'package:monet/resources/app_spacing.dart';
 import 'package:monet/models/category.dart';
 import 'package:monet/controller/category.dart';
 import 'package:monet/controller/transaction.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 import 'package:monet/utils/helper.dart';
 
 class ExpenseScreen extends StatefulWidget {
@@ -26,15 +23,14 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   TextEditingController searchController = TextEditingController();
   bool repeatTransaction = false;
   bool isLoading = true;
+  bool isLoadingAccounts = true; // Add specific loading state for accounts
   bool isSaving = false; // Separate loading state for saving
   List<CategoryModel> categories = [];
   List<CategoryModel> filteredCategories = [];
   List<AccountModel> accounts = [];
   AccountModel? selectedAccount;
   String selectedCurrencySymbol = '\$';
-  File? selectedFile;
-  String? selectedFileName;
-  String? selectedFileMimeType;
+  String accountErrorMessage = '';
 
   @override
   void initState() {
@@ -54,28 +50,47 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   }
 
   Future<void> _loadAccounts() async {
+    setState(() {
+      isLoadingAccounts = true;
+      accountErrorMessage = '';
+    });
+
     try {
       final result = await AccountController.load();
       if (result.isSuccess && result.results != null) {
         setState(() {
           accounts = result.results!;
+          isLoadingAccounts = false;
+
           if (accounts.isNotEmpty) {
             selectedAccount = accounts[0];
             selectedCurrencySymbol = selectedAccount!.currency.symbol;
+          } else {
+            accountErrorMessage = "No accounts available. Please create an account first.";
           }
         });
       } else {
+        setState(() {
+          isLoadingAccounts = false;
+          accountErrorMessage = "Failed to load accounts: ${result.message ?? 'Unknown error'}";
+        });
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Failed to load accounts: ${result.message}")),
+            SnackBar(content: Text(accountErrorMessage)),
           );
         }
       }
     } catch (e) {
       print("Error loading accounts: $e");
+      setState(() {
+        isLoadingAccounts = false;
+        accountErrorMessage = "Error loading accounts: $e";
+      });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error loading accounts: $e")),
+          SnackBar(content: Text(accountErrorMessage)),
         );
       }
     }
@@ -132,228 +147,6 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
             .toList();
       });
     }
-  }
-
-  String _getMimeType(String fileName) {
-    final extension = fileName.toLowerCase().split('.').last;
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'pdf':
-        return 'application/pdf';
-      case 'doc':
-        return 'application/msword';
-      case 'docx':
-        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'txt':
-        return 'text/plain';
-      case 'csv':
-        return 'text/csv';
-      case 'xls':
-        return 'application/vnd.ms-excel';
-      case 'xlsx':
-        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      default:
-        return 'application/octet-stream';
-    }
-  }
-
-  Future<void> _pickFile() async {
-    try {
-      await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Select attachment source'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.photo_library),
-                  title: const Text('Photo Gallery'),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await _pickImageFromGallery();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.camera_alt),
-                  title: const Text('Take Photo'),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await _pickImageFromCamera();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.file_present),
-                  title: const Text('Document or Other File'),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await _pickDocument();
-                  },
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    } catch (e) {
-      print("Error in file picker dialog: $e");
-      if (context.mounted) {
-        Helper.snackBar(context, message: "Error opening file picker: $e", isSuccess: false);
-      }
-    }
-  }
-
-  Future<void> _pickImageFromGallery() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1920,
-      );
-
-      if (image != null) {
-        final file = File(image.path);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          if (fileSize > 10 * 1024 * 1024) {
-            if (context.mounted) {
-              Helper.snackBar(context, message: "File size exceeds 10MB limit", isSuccess: false);
-            }
-            return;
-          }
-
-          setState(() {
-            selectedFile = file;
-            selectedFileName = image.name;
-            selectedFileMimeType = _getMimeType(image.name);
-          });
-
-          if (context.mounted) {
-            Helper.snackBar(context, message: "Photo selected: ${image.name}", isSuccess: true);
-          }
-        } else {
-          if (context.mounted) {
-            Helper.snackBar(context, message: "Selected file is not accessible", isSuccess: false);
-          }
-        }
-      }
-    } catch (e) {
-      print("Error picking image from gallery: $e");
-      if (context.mounted) {
-        Helper.snackBar(context, message: "Error selecting photo: $e", isSuccess: false);
-      }
-    }
-  }
-
-  Future<void> _pickImageFromCamera() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1920,
-      );
-
-      if (photo != null) {
-        final file = File(photo.path);
-        if (await file.exists()) {
-          final fileSize = await file.length();
-          if (fileSize > 10 * 1024 * 1024) {
-            if (context.mounted) {
-              Helper.snackBar(context, message: "File size exceeds 10MB limit", isSuccess: false);
-            }
-            return;
-          }
-
-          final fileName = "photo_${DateTime.now().millisecondsSinceEpoch}.jpg";
-          setState(() {
-            selectedFile = file;
-            selectedFileName = fileName;
-            selectedFileMimeType = 'image/jpeg';
-          });
-
-          if (context.mounted) {
-            Helper.snackBar(context, message: "Photo captured successfully", isSuccess: true);
-          }
-        } else {
-          if (context.mounted) {
-            Helper.snackBar(context, message: "Captured photo is not accessible", isSuccess: false);
-          }
-        }
-      }
-    } catch (e) {
-      print("Error capturing photo: $e");
-      if (context.mounted) {
-        Helper.snackBar(context, message: "Error capturing photo: $e", isSuccess: false);
-      }
-    }
-  }
-
-  Future<void> _pickDocument() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'csv', 'xls', 'xlsx', 'jpg', 'jpeg', 'png'],
-        allowMultiple: false,
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        final platformFile = result.files.first;
-
-        if (platformFile.path != null) {
-          final file = File(platformFile.path!);
-
-          if (await file.exists()) {
-            final fileSize = await file.length();
-            if (fileSize > 10 * 1024 * 1024) {
-              if (context.mounted) {
-                Helper.snackBar(context, message: "File size exceeds 10MB limit", isSuccess: false);
-              }
-              return;
-            }
-
-            setState(() {
-              selectedFile = file;
-              selectedFileName = platformFile.name;
-              selectedFileMimeType = _getMimeType(platformFile.name);
-            });
-
-            if (context.mounted) {
-              Helper.snackBar(context, message: "File selected: ${platformFile.name}", isSuccess: true);
-            }
-          } else {
-            if (context.mounted) {
-              Helper.snackBar(context, message: "Selected file is not accessible", isSuccess: false);
-            }
-          }
-        } else {
-          if (context.mounted) {
-            Helper.snackBar(context, message: "Could not access file path", isSuccess: false);
-          }
-        }
-      }
-    } catch (e) {
-      print("Error picking document: $e");
-      if (context.mounted) {
-        Helper.snackBar(context, message: "Error selecting document: $e", isSuccess: false);
-      }
-    }
-  }
-
-  void _removeFile() {
-    setState(() {
-      selectedFile = null;
-      selectedFileName = null;
-      selectedFileMimeType = null;
-    });
   }
 
   void _showCreateCategoryDialog() {
@@ -416,20 +209,14 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   final result = await CategoryController.createCategory(
                     name: categoryNameController.text.trim(),
                     type: 'expense',
-                    icon: iconNameController.text.trim().isNotEmpty ? iconNameController.text.trim() : null,
+                    icon: iconNameController.text.trim(),
                   );
 
                   if (result.isSuccess && result.results != null) {
-                    setState(() {
-                      CategoryModel newCategory = result.results;
-                      categories.add(newCategory);
-                      filteredCategories = List.from(categories);
-                      selectedCategory = newCategory;
-                    });
-
+                    await _loadCategories();
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Category '${categoryNameController.text}' created successfully")),
+                        const SnackBar(content: Text("Category created successfully")),
                       );
                     }
                   } else {
@@ -457,6 +244,20 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
         );
       },
     );
+  }
+
+  void _navigateToCreateAccount() {
+    // This is where you would navigate to an account creation screen
+    // For now, just show a message that this functionality would be added
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Navigate to create account screen")),
+    );
+    // Example navigation (uncomment and modify when you have an account creation screen):
+    // Navigator.of(context).push(
+    //   MaterialPageRoute(builder: (context) => CreateAccountScreen()),
+    // ).then((_) {
+    //   _loadAccounts(); // Refresh accounts after returning
+    // });
   }
 
   IconData _getCategoryIcon(String? iconName) {
@@ -578,21 +379,21 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: TextField(
                       controller: searchController,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Search categories',
-                        prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+                        prefixIcon: Icon(Icons.search),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                        hintStyle: TextStyle(color: Colors.grey.shade500),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
                       onChanged: (_) {
-                        _filterCategories();
-                        setState(() {});
+                        setState(() {
+                          _filterCategories();
+                        });
                       },
                     ),
                   ),
@@ -600,39 +401,20 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
                   Expanded(
                     child: filteredCategories.isEmpty
-                        ? const Center(child: Text("No matching categories found"))
-                        : ListView.separated(
-                      itemCount: filteredCategories.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final category = filteredCategories[index];
-                        return ListTile(
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColours.primaryColour.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              _getCategoryIcon(category.icon),
-                              color: AppColours.primaryColour,
-                              size: 24,
-                            ),
-                          ),
-                          title: Text(
-                            category.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          onTap: () {
-                            this.setState(() {
-                              selectedCategory = category;
-                            });
-                            Navigator.pop(context);
-                          },
-                        );
-                      },
+                        ? Center(
+                      child: Text(
+                        'No categories found',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    )
+                        : SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: filteredCategories
+                            .map((category) => _buildCategoryItem(category))
+                            .toList(),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -641,12 +423,17 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                     onPressed: _showCreateCategoryDialog,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColours.primaryColour,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: const Text(
-                      'Other Category',
-                      style: TextStyle(color: Colors.white),
+                      'Create New Category',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -661,58 +448,140 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   void _showWalletSelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // Allow flexible height
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          height: MediaQuery.of(context).size.height * 0.5,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Select Account Type', style: AppStyles.bold(size: 20)),
-              AppSpacing.vertical(size: 16),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: accounts.length,
-                  itemBuilder: (context, index) {
-                    final account = accounts[index];
-                    final formattedBalance = account.currentBalanceText.replaceAll(account.currency.symbol, '').trim();
+        return StatefulBuilder(
+            builder: (context, setState) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                height: MediaQuery.of(context).size.height * 0.5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Select Account', style: AppStyles.bold(size: 20)),
+                    AppSpacing.vertical(size: 16),
 
-                    return ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(8),
+                    // Handle different states
+                    Expanded(
+                      child: _buildAccountsList(),
+                    ),
+
+                    // Add account button at bottom
+                    if (accounts.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _navigateToCreateAccount();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColours.primaryColour,
+                            minimumSize: const Size(double.infinity, 48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'Create New Account',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                        child: Icon(_getAccountTypeIcon(account.accountType.name)),
                       ),
-                      title: Text(account.name),
-                      subtitle: Text(
-                        '${account.currency.symbol}${formattedBalance}',
-                        style: TextStyle(color: AppColours.primaryColour),
-                      ),
-                      onTap: () {
-                        setState(() {
-                          selectedAccount = account;
-                          selectedCurrencySymbol = account.currency.symbol;
-                        });
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
+                  ],
                 ),
-              ),
-            ],
-          ),
+              );
+            }
         );
       },
     );
   }
 
-  // Fixed _saveExpense method with better transaction handling
+  Widget _buildAccountsList() {
+    if (isLoadingAccounts) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (accountErrorMessage.isNotEmpty && accounts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.account_balance_wallet_outlined, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(
+              accountErrorMessage,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loadAccounts,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColours.primaryColour,
+              ),
+              child: const Text('Retry', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (accounts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.account_balance_wallet_outlined, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(
+              'No accounts found.\nPlease create an account first.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: accounts.length,
+      itemBuilder: (context, index) {
+        final account = accounts[index];
+        final formattedBalance = account.currentBalanceText.replaceAll(account.currency.symbol, '').trim();
+
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: AppColours.primaryColour.withOpacity(0.1),
+            child: Icon(
+              _getAccountTypeIcon(account.accountType.code),
+              color: AppColours.primaryColour,
+            ),
+          ),
+          title: Text(account.name),
+          subtitle: Text(
+            '${account.currency.symbol} $formattedBalance',
+            style: TextStyle(color: AppColours.primaryColour),
+          ),
+          onTap: () {
+            setState(() {
+              selectedAccount = account;
+              selectedCurrencySymbol = account.currency.symbol;
+            });
+            Navigator.pop(context);
+          },
+        );
+      },
+    );
+  }
+
+  // Simplified _saveExpense method without file handling
   Future<void> _saveExpense() async {
     // Validate required fields
     if (selectedAccount == null) {
@@ -739,41 +608,6 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     try {
       final fullTimestamp = DateTime.now().toIso8601String();
 
-      // Validate file if selected (but don't fail if no file)
-      if (selectedFile != null) {
-        if (!await selectedFile!.exists()) {
-          Helper.snackBar(context, message: "Selected file is no longer accessible", isSuccess: false);
-          setState(() {
-            isSaving = false;
-          });
-          return;
-        }
-
-        final fileSize = await selectedFile!.length();
-        if (fileSize > 10 * 1024 * 1024) {
-          Helper.snackBar(context, message: "File size exceeds 10MB limit", isSuccess: false);
-          setState(() {
-            isSaving = false;
-          });
-          return;
-        }
-
-        print("File validation passed:");
-        print("- File path: ${selectedFile!.path}");
-        print("- File name: $selectedFileName");
-        print("- File size: ${fileSize} bytes");
-        print("- MIME type: $selectedFileMimeType");
-      }
-
-      print("Saving transaction with parameters:");
-      print("- Account ID: ${selectedAccount!.id}");
-      print("- Type: expense");
-      print("- Amount: $amount");
-      print("- Category ID: ${selectedCategory!.id}");
-      print("- Description: ${descriptionController.text}");
-      print("- Date: $fullTimestamp");
-      print("- Has attachment: ${selectedFile != null}");
-
       // Save the transaction
       final result = await TransactionController.saveTransaction(
         accountId: selectedAccount!.id,
@@ -786,85 +620,16 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
         repeat: repeatTransaction,
       );
 
-      print("Transaction save result:");
-      print("- Success: ${result.isSuccess}");
-      print("- Message: ${result.message}");
-      print("- Transaction ID: ${result.results?.id}");
-
       if (result.isSuccess && result.results != null) {
-        final transactionId = result.results!.id;
-        print("Transaction saved successfully with ID: $transactionId");
-
-        // Handle attachment upload separately if we have one
-        if (selectedFile != null && transactionId != null) {
-          print("Starting attachment upload for transaction: $transactionId");
-
-          try {
-            final attachResult = await TransactionController.uploadAttachment(
-              transactionId: transactionId,
-              file: selectedFile!,
-              description: descriptionController.text.isNotEmpty ? descriptionController.text : null,
-            );
-
-            print("Attachment upload result:");
-            print("- Success: ${attachResult.isSuccess}");
-            print("- Message: ${attachResult.message}");
-            print("- Errors: ${attachResult.errors}");
-
-            if (attachResult.isSuccess) {
-              if (mounted) {
-                Helper.snackBar(context, message: "Transaction and attachment saved successfully!", isSuccess: true);
-              }
-            } else {
-              // Transaction saved but attachment failed - this is still a partial success
-              String attachError = attachResult.message ?? "Unknown attachment error";
-              if (attachResult.errors != null) {
-                if (attachResult.errors is Map) {
-                  attachResult.errors?.forEach((key, value) {
-                    attachError += "\n• $key: ${value is List ? value.join(', ') : value}";
-                  });
-                } else {
-                  attachError += "\n• ${attachResult.errors}";
-                }
-              }
-
-              print("Attachment upload failed but transaction was saved: $attachError");
-              if (mounted) {
-                Helper.snackBar(
-                    context,
-                    message: "Transaction saved successfully, but attachment upload failed: $attachError",
-                    isSuccess: false
-                );
-              }
-            }
-          } catch (attachError) {
-            print("Attachment upload exception: $attachError");
-            if (mounted) {
-              Helper.snackBar(
-                  context,
-                  message: "Transaction saved successfully, but attachment upload failed: $attachError",
-                  isSuccess: false
-              );
-            }
-          }
-        } else {
-          // No attachment, just show success
-          if (mounted) {
-            Helper.snackBar(context, message: result.message ?? "Expense saved successfully", isSuccess: true);
-          }
-        }
-
-        // Navigate back on success
         if (mounted) {
+          Helper.snackBar(context, message: "Expense saved successfully", isSuccess: true);
           Navigator.pop(context);
         }
       } else {
         // Transaction save failed
         String errorMsg = result.message ?? "Failed to save expense";
-        print("Transaction save failed: $errorMsg");
 
         if (result.errors != null) {
-          print("Transaction validation errors: ${result.errors}");
           if (result.errors is Map) {
             result.errors?.forEach((key, value) {
               errorMsg += "\n• $key: ${value is List ? value.join(', ') : value}";
@@ -909,22 +674,20 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.arrow_back, color: Colors.white),
-                          onPressed: () => Navigator.pop(context),
                         ),
-                        const Spacer(),
                         const Text(
-                          'Expense',
+                          'Add Expense',
                           style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const Spacer(),
-                        // blank to balance
                         const SizedBox(width: 48),
                       ],
                     ),
@@ -932,53 +695,53 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
                   // How much? + amount
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24)
-                        .copyWith(top: 24, bottom: 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
                           'How much?',
                           style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w400,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white70,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
                           children: [
                             Text(
                               selectedCurrencySymbol,
-                              style: AppStyles.bold(color: Colors.white, size: 40),
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextField(
                                 controller: amountController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                                 decoration: const InputDecoration(
+                                  border: InputBorder.none,
                                   hintText: '0',
                                   hintStyle: TextStyle(
-                                    fontSize: 48,
-                                    color: Colors.white,
+                                    fontSize: 32,
                                     fontWeight: FontWeight.bold,
+                                    color: Colors.white70,
                                   ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
                                 ),
-                                style: const TextStyle(
-                                  fontSize: 48,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               ),
                             ),
                           ],
                         ),
+                        const SizedBox(height: 32),
                       ],
                     ),
                   ),
@@ -1003,21 +766,69 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   GestureDetector(
                     onTap: () => _showCategorySelector(context),
                     child: Container(
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.grey[50],
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: ListTile(
-                        title: Text(
-                          selectedCategory?.name ?? 'Select Category',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: selectedCategory == null ? Colors.grey.shade400 : Colors.black87,
-                          ),
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 1,
                         ),
-                        trailing: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade400),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      child: Row(
+                        children: [
+                          if (selectedCategory != null)
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppColours.primaryColour,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                _getCategoryIcon(selectedCategory!.icon),
+                                color: Colors.white,
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.category,
+                                color: Colors.white,
+                              ),
+                            ),
+                          const SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Category',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                selectedCategory?.name ?? 'Select Category',
+                                style: TextStyle(
+                                  color: selectedCategory != null ? Colors.black : Colors.grey[400],
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          Icon(
+                            Icons.chevron_right,
+                            color: Colors.grey[400],
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1026,20 +837,30 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   // Description
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Colors.grey[50],
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(
+                        color: Colors.grey[200]!,
+                        width: 1,
+                      ),
                     ),
                     child: TextField(
                       controller: descriptionController,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
                       decoration: InputDecoration(
-                        hintText: 'Description',
-                        hintStyle: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade400,
+                        labelText: 'Description',
+                        labelStyle: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
                       ),
                     ),
                   ),
@@ -1049,73 +870,70 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   GestureDetector(
                     onTap: () => _showWalletSelector(context),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.grey[200]!,
+                          width: 1,
+                        ),
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            selectedAccount == null
-                                ? Icons.account_balance_wallet
-                                : _getAccountTypeIcon(selectedAccount!.accountType.name),
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              selectedAccount == null
-                                  ? 'Select Account Type'
-                                  : '${selectedAccount!.name} (${selectedAccount!.accountType.name})',
-                              style: TextStyle(
-                                color: selectedAccount == null ? Colors.grey.shade500 : Colors.black87,
-                              ),
-                            ),
-                          ),
                           if (selectedAccount != null)
-                            Text(
-                              '${selectedAccount!.currency.symbol}${selectedAccount!.currentBalance.toStringAsFixed(2)}',
-                              style: TextStyle(
+                            CircleAvatar(
+                              backgroundColor: AppColours.primaryColour.withOpacity(0.1),
+                              child: Icon(
+                                _getAccountTypeIcon(selectedAccount!.accountType.code),
                                 color: AppColours.primaryColour,
-                                fontWeight: FontWeight.w500,
+                              ),
+                            )
+                          else
+                            CircleAvatar(
+                              backgroundColor: Colors.grey[300],
+                              child: const Icon(
+                                Icons.account_balance_wallet,
+                                color: Colors.white,
                               ),
                             ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+                          const SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Account',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                selectedAccount?.name ?? 'Select Account',
+                                style: TextStyle(
+                                  color: selectedAccount != null ? Colors.black : Colors.grey[400],
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              if (selectedAccount != null)
+                                Text(
+                                  '${selectedAccount!.currency.symbol} ${selectedAccount!.currentBalanceText}',
+                                  style: TextStyle(
+                                    color: AppColours.primaryColour,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const Spacer(),
+                          Icon(
+                            Icons.chevron_right,
+                            color: Colors.grey[400],
+                          ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Attachment - Updated to work with XFile
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: ListTile(
-                      leading: Icon(
-                          selectedFile != null ? Icons.attach_file : Icons.attach_file_outlined,
-                          color: selectedFile != null ? AppColours.primaryColour : Colors.grey.shade500
-                      ),
-                      title: Text(
-                        selectedFile != null ? selectedFileName! : 'Add attachment',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: selectedFile != null ? Colors.black87 : Colors.grey.shade500,
-                        ),
-                      ),
-                      trailing: selectedFile != null
-                          ? IconButton(
-                        icon: Icon(Icons.close, color: Colors.grey.shade500),
-                        onPressed: _removeFile,
-                      )
-                          : null,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                      onTap: selectedFile != null ? null : _pickFile,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1123,38 +941,25 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   // Repeat
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Colors.grey[50],
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(
+                        color: Colors.grey[200]!,
+                        width: 1,
+                      ),
                     ),
                     child: ListTile(
-                      title: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Repeat',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Repeat transaction',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ],
-                      ),
+                      title: const Text('Repeat this transaction'),
+                      subtitle: const Text('The transaction will be repeated automatically'),
                       trailing: Switch(
                         value: repeatTransaction,
-                        onChanged: (v) => setState(() => repeatTransaction = v),
                         activeColor: AppColours.primaryColour,
-                        inactiveTrackColor: Colors.grey.shade300,
+                        onChanged: (value) {
+                          setState(() {
+                            repeatTransaction = value;
+                          });
+                        },
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
                   ),
                 ],
@@ -1170,7 +975,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: ElevatedButton(
-                    onPressed: _saveExpense,
+                    onPressed: isSaving ? null : _saveExpense,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColours.primaryColour,
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1178,7 +983,9 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                       elevation: 0,
                       minimumSize: const Size(double.infinity, 54),
                     ),
-                    child: const Text(
+                    child: isSaving
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
                       'Continue',
                       style: TextStyle(
                         fontSize: 16,
@@ -1206,5 +1013,4 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       ),
     );
   }
-
 }

@@ -8,15 +8,9 @@ class AuthService {
     final userBox = await Hive.openBox(UserModel.userBox);
     await userBox.clear();
 
-    var userModel = UserModel();
-    userModel.id = user['id'];
-    userModel.name = user['name'];
-    userModel.email = user['email'];
-    userModel.emailVerifiedAt = user['email_verified_at'] != null ? DateTime.parse(user['email_verified_at']) : null;
-    userModel.createdAt = DateTime.parse(user['created_at']);
-    userModel.updatedAt = DateTime.parse(user['updated_at']);
-    userModel.token = token;
-
+    // Ensure token is set in the user map
+    user['token'] = token;
+    var userModel = UserModel.fromJson(user);
     await userBox.put(0, userModel);
     return userModel;
   }
@@ -25,14 +19,8 @@ class AuthService {
     final userBox = await Hive.openBox(UserModel.userBox);
     if(userBox.isEmpty) throw Exception("User does not exist");
 
-    var userModel = userBox.get(0);
-    userModel.id = user['id'] ?? userModel.id;
-    userModel.name = user['name'] ?? userModel.name;
-    userModel.email = user['email'] ?? userModel.email;
-    userModel.emailVerifiedAt = user['email_verified_at'] != null ? DateTime.parse(user['email_verified_at']) :  userModel.emailVerifiedAt;
-    userModel.createdAt = user['created_at'] != null ? DateTime.parse(user['created_at']) :  userModel.createdAt;
-    userModel.updatedAt = user['updated_at'] != null ? DateTime.parse(user['updated_at']) :  userModel.updatedAt;
-
+    // Use fromJson to update all fields
+    var userModel = UserModel.fromJson(user);
     await userBox.put(0, userModel);
     return userModel;
   }

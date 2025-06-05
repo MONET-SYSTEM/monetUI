@@ -27,6 +27,8 @@ class CategoryModel {
 
   static String categoryBox = 'categories';
 
+  get uuid => null;
+
   static CategoryModel fromMap(Map<String, dynamic> category) {
     var categoryModel = CategoryModel();
     categoryModel.id = category['id'];

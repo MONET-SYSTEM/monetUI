@@ -54,7 +54,17 @@ class AccountModel{
         ? (account['active'] ? 1 : 0)
         : account['active'];
 
-    accountModel.currency = CurrencyModel.fromMap(account['currency']);
+    // Safely initialize currency
+    if (account['currency'] != null) {
+      accountModel.currency = CurrencyModel.fromMap(account['currency']);
+    } else {
+      // Provide a default currency if missing
+      accountModel.currency = CurrencyModel()
+        ..id = ''
+        ..name = 'Unknown'
+        ..symbol = 'PHP';
+    }
+
     accountModel.accountType = AccountTypeModel.fromMap(account['account_type']);
 
     return accountModel;

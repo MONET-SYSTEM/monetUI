@@ -470,79 +470,158 @@ class _IncomeScreenState extends State<IncomeScreen> {
   }
 
   void _saveIncome() async {
+    // Prevent multiple simultaneous saves
+    if (isLoading) return;
+
     setState(() {
       isLoading = true;
     });
 
     try {
-      // Validate required fields
+      // Validate required fields first
       if (selectedAccount == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please select an account")),
-        );
-        setState(() {
-          isLoading = false;
-        });
+        _showErrorMessage("Please select an account");
+        return;
+      }
+
+      if (selectedCategory == null) {
+        _showErrorMessage("Please select a category");
         return;
       }
 
       // Parse and validate amount
       double amount;
       try {
-        // Remove any currency symbols or commas
-        String sanitizedAmount = amountController.text.replaceAll(RegExp(r'[^0-9.]'), '');
-        amount = double.parse(sanitizedAmount);
-        if (amount <= 0) {
-          throw FormatException("Amount must be greater than zero");
+        // Get the raw text and remove currency symbols, commas, and spaces
+        String rawAmount = amountController.text
+            .replaceAll(selectedCurrencySymbol, '')
+            .replaceAll(',', '')
+            .replaceAll(' ', '')
+            .trim();
+
+        // Check if empty or just whitespace
+        if (rawAmount.isEmpty || rawAmount == '0' || rawAmount == '0.0' || rawAmount == '0.00') {
+          _showErrorMessage("Please enter an amount greater than zero");
+          return;
         }
+
+        // Parse the amount
+        amount = double.parse(rawAmount);
+
+        // Validate amount is positive and not too large
+        if (amount <= 0) {
+          _showErrorMessage("Amount must be greater than zero");
+          return;
+        }
+
+        if (amount > 999999999.99) {
+          _showErrorMessage("Amount is too large");
+          return;
+        }
+
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please enter a valid amount")),
-        );
-        setState(() {
-          isLoading = false;
-        });
+        _showErrorMessage("Please enter a valid amount (numbers only)");
         return;
       }
 
-      // Format today's date for transaction
-      final today = DateTime.now();
-      final formattedDate = "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
+      // Validate description length if provided
+      String description = descriptionController.text.trim();
+      if (description.length > 255) {
+        _showErrorMessage("Description is too long (maximum 255 characters)");
+        return;
+      }
+
+      // Format today's date for transaction (using UTC to avoid timezone issues)
+      final now = DateTime.now();
+      final formattedDate = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+      print("Saving income transaction:");
+      print("- Account ID: ${selectedAccount!.id}");
+      print("- Category ID: ${selectedCategory!.id}");
+      print("- Amount: $amount");
+      print("- Description: '$description'");
+      print("- Date: $formattedDate");
 
       // Save the transaction
       final result = await TransactionController.saveTransaction(
         accountId: selectedAccount!.id,
-        type: "income", // Important: Set type as income
+        type: "income", // Explicitly set as income
         amount: amount,
-        categoryId: selectedCategory?.id,
-        description: descriptionController.text,
+        categoryId: selectedCategory!.id, // Now guaranteed to be non-null
+        description: description.isEmpty ? null : description, // Send null if empty
         transaction_date: formattedDate,
         is_reconciled: true,
         repeat: repeatTransaction,
       );
 
-      if (result.isSuccess && result.results != null) {
+      // Handle the result
+      if (result.isSuccess) {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Income added successfully")),
+          SnackBar(
+            content: const Text("Income added successfully"),
+            backgroundColor: const Color(0xFF00A86B),
+            duration: const Duration(seconds: 2),
+          ),
         );
-        Navigator.of(context).pop(); // Return to previous screen
+
+        // Clear the form or navigate back
+        _clearForm();
+        Navigator.of(context).pop(true); // Pass true to indicate success
+
       } else {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to add income: ${result.message}")),
-        );
+        // Show specific error message from the controller
+        String errorMessage = result.message ?? "Failed to add income";
+        _showErrorMessage("Failed to save: $errorMessage");
+        print("Transaction save failed: ${result.message}");
       }
+
     } catch (e) {
-      print("Error saving income: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error saving income: $e")),
-      );
+      // Handle any unexpected errors
+      print("Unexpected error saving income: $e");
+      String userFriendlyMessage = "An unexpected error occurred. Please try again.";
+
+      // Provide more specific error messages for common issues
+      if (e.toString().contains('connection')) {
+        userFriendlyMessage = "Network error. Please check your connection and try again.";
+      } else if (e.toString().contains('timeout')) {
+        userFriendlyMessage = "Request timed out. Please try again.";
+      }
+
+      _showErrorMessage(userFriendlyMessage);
+
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      // Always reset loading state
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
+  }
+
+// Helper method to show error messages consistently
+  void _showErrorMessage(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+// Helper method to clear the form after successful save
+  void _clearForm() {
+    amountController.text = '0';
+    descriptionController.clear();
+    setState(() {
+      selectedCategory = null;
+      repeatTransaction = false;
+      // Keep selectedAccount as is, user probably wants to use the same account
+    });
   }
 
   @override

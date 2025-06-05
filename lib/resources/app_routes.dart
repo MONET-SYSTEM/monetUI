@@ -17,6 +17,7 @@ class AppRoutes {
   static String editAccount = '/edit-account';
   static String budget = '/budget';
   static String transaction = '/transaction';
+  static String showProfile = '/show-profile';
 
 }
 

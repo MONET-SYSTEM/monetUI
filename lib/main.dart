@@ -23,8 +23,10 @@ import 'package:monet/views/auth/verification.dart';
 import 'package:monet/views/dashboard/home.dart';
 import 'package:monet/views/onboarding/splash_screen.dart';
 import 'package:monet/views/onboarding/walkthrough.dart';
+import 'package:monet/views/profile/change_password.dart';
+import 'package:monet/views/profile/edit_profile.dart';
+import 'package:monet/views/profile/show_profile.dart';
 import 'models/category.dart';
-import 'models/transaction_attachment.dart';
 
 Future<void> main() async {
   await Hive.initFlutter();
@@ -35,7 +37,6 @@ Future<void> main() async {
   Hive.registerAdapter(CategoryModelAdapter());
   Hive.registerAdapter(TransactionModelAdapter());
   Hive.registerAdapter(CurrencyTransferModelAdapter());
-  Hive.registerAdapter(TransactionAttachmentModelAdapter());
   runApp(const MyApp());
 }
 
@@ -67,6 +68,9 @@ class MyApp extends StatelessWidget {
         AppRoutes.setupAccount: (context) => const SetupAccountScreen(),
         AppRoutes.addAccount: (context) => const AddAccountScreen(),
         AppRoutes.signupSuccess: (context) => const SignupSuccessScreen(),
+        AppRoutes.editProfile: (context) => const EditProfileScreen(),
+        AppRoutes.changePassword: (context) => const ChangePasswordScreen(),
+        AppRoutes.showProfile: (context) => const ShowProfileScreen(),
         AppRoutes.editAccount: (context) {
           final account = ModalRoute.of(context)!.settings.arguments as AccountModel;
           return EditAccountScreen(account: account);

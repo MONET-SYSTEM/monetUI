@@ -30,6 +30,8 @@ class CurrencyTransferModel {
 
   static String currencyTransferBox = 'currency_transfers';
 
+  get id => null;
+
   static CurrencyTransferModel fromMap(Map<String, dynamic> data) {
     var model = CurrencyTransferModel();
     model.transferId = data['transfer_id'];

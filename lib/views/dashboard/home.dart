@@ -284,11 +284,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Helper method to get account currency symbol by ID
   String _getAccountCurrencySymbol(String accountId) {
-    final account = accounts.firstWhere(
-          (account) => account.id == accountId,
-      orElse: () => AccountModel(),
-    );
-    return account.currency?.symbol ?? defaultCurrencySymbol;
+    try {
+      final account = accounts.firstWhere((account) => account.id == accountId);
+      // Safely check for currency and symbol
+      if (account.currency != null && account.currency.symbol != null && account.currency.symbol.isNotEmpty) {
+        return account.currency.symbol;
+      }
+    } catch (e) {
+      // Account not found or currency not set
+    }
+    return defaultCurrencySymbol;
   }
 
   // Helper method to build income/expense cards
@@ -760,6 +765,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 amount: transaction.amount,
                                 type: transaction.type,
                                 time: transaction.getFormattedTime(),
+                                currencySymbol: _getAccountCurrencySymbol(transaction.accountId),
                               );
                             },
                           ),
@@ -977,6 +983,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required double amount,
     required String type,
     required String time,
+    required String currencySymbol,
   }) {
     // Determine prefix and color based on transaction type
     final isExpense = type.toLowerCase() == 'expense';
@@ -999,7 +1006,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Format amount with currency symbol
-    final formattedAmount = '$prefix$defaultCurrencySymbol${amount.toStringAsFixed(2)}';
+    final formattedAmount = '$prefix$currencySymbol${amount.toStringAsFixed(2)}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1047,3 +1054,4 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+

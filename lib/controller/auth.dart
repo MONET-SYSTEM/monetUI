@@ -187,4 +187,6 @@ class AuthController {
       return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
     }
   }
+
+
 }

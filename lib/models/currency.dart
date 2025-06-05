@@ -34,6 +34,8 @@ class CurrencyModel{
 
   static String currencyBox = 'currencies';
 
+  get uuid => null;
+
   static CurrencyModel fromMap(Map<String, dynamic> currency) {
     var currencyModel = CurrencyModel();
     currencyModel.id = currency['id'];

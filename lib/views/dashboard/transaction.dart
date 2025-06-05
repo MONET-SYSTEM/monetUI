@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:monet/controller/account.dart';
 import 'package:monet/controller/account_type.dart';
 import 'package:monet/controller/category.dart';
 import 'package:monet/controller/transaction.dart';
+import 'package:monet/models/account.dart';
 import 'package:monet/resources/app_colours.dart';
 import 'package:monet/resources/app_styles.dart';
 import 'package:monet/models/transaction.dart';
@@ -50,6 +52,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
   List<TransactionModel> allTransactions = [];
   List<dynamic> accountTypes = [];
   List<dynamic> categories = [];
+  List<AccountModel> accounts = [];
+  Map<String, AccountModel> accountMap = {};
 
   // Month options for dropdown
   List<String> availableMonths = [
@@ -122,12 +126,20 @@ class _TransactionScreenState extends State<TransactionScreen> {
     );
   }
 
+  void _navigateToTransaction() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const TransactionScreen()),
+    );
+  }
+
   Future<void> _loadData() async {
-    // Load transactions, account types, and categories concurrently
+    // Load transactions, account types, categories, and accounts concurrently
     await Future.wait([
       _loadTransactions(),
       _loadAccountTypes(),
       _loadCategories(),
+      _loadAccounts(),
     ]);
   }
 
@@ -227,52 +239,18 @@ class _TransactionScreenState extends State<TransactionScreen> {
     }
   }
 
-  List<TransactionModel> get filteredTransactions {
-    List<TransactionModel> filtered = allTransactions;
-
-    // Filter by type
-    if (filterType != TransactionType.all) {
-      filtered = filtered.where((transaction) {
-        return transaction.type?.toLowerCase() == filterType.name;
-      }).toList();
-    }
-
-    // Filter by category
-    if (selectedCategory.isNotEmpty) {
-      filtered = filtered.where((transaction) {
-        // Handle both CategoryModel and String cases
-        String? categoryId = _getCategoryId(transaction.category);
-        return categoryId == selectedCategory;
-      }).toList();
-    }
-
-    // Filter by account type
-    if (selectedAccountType.isNotEmpty) {
-      filtered = filtered.where((transaction) {
-        return transaction.accountId == selectedAccountType ||
-            _getAccountTypeFromAccountId(transaction.accountId) == selectedAccountType;
-      }).toList();
-    }
-
-    // Sort transactions
-    filtered.sort((a, b) {
-      switch (sortBy) {
-        case SortBy.highest:
-          return (b.amount ?? 0).compareTo(a.amount ?? 0);
-        case SortBy.lowest:
-          return (a.amount ?? 0).compareTo(b.amount ?? 0);
-        case SortBy.newest:
-          DateTime dateA = DateTime.tryParse(a.transactionDate ?? '') ?? DateTime.now();
-          DateTime dateB = DateTime.tryParse(b.transactionDate ?? '') ?? DateTime.now();
-          return dateB.compareTo(dateA);
-        case SortBy.oldest:
-          DateTime dateA = DateTime.tryParse(a.transactionDate ?? '') ?? DateTime.now();
-          DateTime dateB = DateTime.tryParse(b.transactionDate ?? '') ?? DateTime.now();
-          return dateA.compareTo(dateB);
+  Future<void> _loadAccounts() async {
+    try {
+      final result = await AccountController.load();
+      if (result.isSuccess && result.results != null) {
+        setState(() {
+          accounts = result.results!;
+          accountMap = { for (var acc in accounts) acc.id : acc };
+        });
       }
-    });
-
-    return filtered;
+    } catch (e) {
+      // Optionally handle error
+    }
   }
 
   // Helper method to safely get category ID from transaction.category
@@ -375,27 +353,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
       }
     } catch (e) {
       // Fallback
-    }
-
-    return Icons.category;
-  }
-
-  // Helper method to get category icon from ID
-  IconData _getCategoryIconFromId(String? categoryId) {
-    if (categoryId == null || categories.isEmpty) return Icons.category;
-
-    try {
-      final category = categories.firstWhere(
-            (cat) => (cat.id ?? cat['id']) == categoryId,
-        orElse: () => null,
-      );
-
-      if (category != null) {
-        String? iconName = category.icon ?? category['icon'];
-        return _getIconFromName(iconName);
-      }
-    } catch (e) {
-      // Handle case where no matching category is found
     }
 
     return Icons.category;
@@ -585,265 +542,180 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Group transactions by date label (Today, Yesterday, or date)
+    Map<String, List<TransactionModel>> groupedTransactions = {};
+    for (var transaction in allTransactions) {
+      final transactionDate = DateTime.tryParse(transaction.transactionDate ?? '') ?? DateTime.now();
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final transactionDay = DateTime(transactionDate.year, transactionDate.month, transactionDate.day);
+      String label;
+      if (transactionDay == today) {
+        label = 'Today';
+      } else if (transactionDay == yesterday) {
+        label = 'Yesterday';
+      } else {
+        label = DateFormat('MMM d, yyyy').format(transactionDate);
+      }
+      groupedTransactions.putIfAbsent(label, () => []).add(transaction);
+    }
+    final groupedKeys = groupedTransactions.keys.toList();
+    groupedKeys.sort((a, b) {
+      // Sort by date descending: Today > Yesterday > others by date
+      if (a == 'Today') return -1;
+      if (b == 'Today') return 1;
+      if (a == 'Yesterday') return -1;
+      if (b == 'Yesterday') return 1;
+      // Parse date for other labels
+      DateTime? da, db;
+      try { da = DateFormat('MMM d, yyyy').parse(a); } catch (_) {}
+      try { db = DateFormat('MMM d, yyyy').parse(b); } catch (_) {}
+      if (da != null && db != null) return db.compareTo(da);
+      return 0;
+    });
     return Scaffold(
-      backgroundColor: AppColours.backgroundColor,
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
-        title: Text(
-          'Transaction',
-          style: AppStyles.bold(size: 20),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: _showFilterBottomSheet,
-            icon: const Icon(Icons.tune, color: Colors.black),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Main content
-          RefreshIndicator(
-            onRefresh: _loadData,
-            child: Column(
-              children: [
-                // Month selector
-                GestureDetector(
-                  onTap: () => _showMonthSelector(),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          selectedMonth,
-                          style: AppStyles.medium(size: 16),
-                        ),
-                        const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Colors.grey,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Transaction type filter
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  height: 50,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      _buildFilterChip('All', TransactionType.all),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('Income', TransactionType.income),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('Expense', TransactionType.expense),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('Transfer', TransactionType.transfer),
-                    ],
-                  ),
-                ),
-
-                // Transaction summary card
-                Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColours.primaryColour, AppColours.primaryColour.withOpacity(0.8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Transaction Summary',
-                        style: AppStyles.medium(size: 18, color: Colors.white),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${defaultCurrencySymbol}${_calculateTotalBalance().toStringAsFixed(2)}',
-                        style: AppStyles.titleX(size: 28, color: Colors.white),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildBalanceItem(
-                            'Income',
-                            _calculateTotalIncome(),
-                            Colors.white,
-                            Icons.arrow_downward,
-                          ),
-                          _buildBalanceItem(
-                            'Expense',
-                            _calculateTotalExpense(),
-                            Colors.white,
-                            Icons.arrow_upward,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Transactions list header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Transactions',
-                        style: AppStyles.medium(size: 18),
-                      ),
-                      Row(
-                        children: [
-                          Text(
-                            sortBy.name.capitalize(),
-                            style: AppStyles.regular1(
-                              size: 14,
-                              color: AppColours.primaryColour,
-                            ),
-                          ),
-                          Icon(
-                            Icons.keyboard_arrow_down,
-                            color: AppColours.primaryColour,
-                            size: 18,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Transactions list or loading/error states
-                Expanded(
-                  child: _buildTransactionsList(),
-                ),
-
-                // Add bottom padding to prevent content being hidden by nav bar
-                const SizedBox(height: 80),
-              ],
-            ),
-          ),
-
-          // Add menu overlay (same as HomeScreen)
-          if (_isAddMenuOpen)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: _toggleAddMenu, // Close menu when tapping outside
-                child: Container(
-                  color: Colors.black54, // Semi-transparent overlay
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Income button
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: ElevatedButton.icon(
-                            onPressed: _showAddIncomeScreen,
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColours.incomeColor,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.arrow_downward, color: Colors.white),
-                            ),
-                            label: const Text('Income'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              textStyle: AppStyles.medium(size: 16),
-                            ),
-                          ),
-                        ),
-
-                        // Transfer button
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: ElevatedButton.icon(
-                            onPressed: _showTransferScreen,
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColours.primaryColour,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.swap_horiz, color: Colors.white),
-                            ),
-                            label: const Text('Transfer'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              textStyle: AppStyles.medium(size: 16),
-                            ),
-                          ),
-                        ),
-
-                        // Expense button
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: ElevatedButton.icon(
-                            onPressed: _showAddExpenseScreen,
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColours.expenseColor,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.arrow_upward, color: Colors.white),
-                            ),
-                            label: const Text('Expense'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              textStyle: AppStyles.medium(size: 16),
-                            ),
-                          ),
-                        ),
-
-                        // Close button
-                        Padding(
-                          padding: const EdgeInsets.only(top: 24),
-                          child: FloatingActionButton(
-                            onPressed: _toggleAddMenu,
-                            backgroundColor: Colors.purple,
-                            child: const Icon(Icons.close, color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+        title: Row(
+          children: [
+            Icon(Icons.keyboard_arrow_down, color: Colors.black),
+            SizedBox(width: 8),
+            Text(
+              selectedMonth, // Show selected month
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
               ),
             ),
+          ],
+        ),
+        actions: [
+          Icon(Icons.menu, color: Colors.black),
+          SizedBox(width: 16),
         ],
       ),
-      // Bottom navigation bar - identical to HomeScreen
+      body: Column(
+        children: [
+          // Financial Report Card
+          GestureDetector(
+            onTap: () {}, // TODO: Implement navigation to report
+            child: Container(
+              margin: EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.purple[400]!, Colors.purple[600]!],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'See your financial report',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+                ],
+              ),
+            ),
+          ),
+
+          // Transactions List
+          Expanded(
+            child: isLoading
+                ? Center(child: CircularProgressIndicator())
+                : allTransactions.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.hourglass_empty, size: 48, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text('No transactions found'),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: groupedKeys.fold(0, (sum, k) => sum! + 1 + groupedTransactions[k]!.length),
+                        itemBuilder: (context, index) {
+                          int runningIndex = 0;
+                          for (final key in groupedKeys) {
+                            if (index == runningIndex) {
+                              // Section header
+                              return Padding(
+                                padding: EdgeInsets.only(top: 16, bottom: 8),
+                                child: Text(
+                                  key,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              );
+                            }
+                            runningIndex++;
+                            final txList = groupedTransactions[key]!;
+                            if (index < runningIndex + txList.length) {
+                              final transaction = txList[index - runningIndex];
+                              final type = transaction.type?.toLowerCase() ?? '';
+                              final isExpense = type == 'expense';
+                              final isIncome = type == 'income';
+                              final isTransfer = type == 'transfer';
+                              final icon = _getTransactionIcon(transaction);
+                              final amount = transaction.amount ?? 0.0;
+                              final account = accountMap[transaction.accountId];
+                              final currencySymbol = account?.currency.symbol ?? defaultCurrencySymbol;
+                              final formattedAmount =
+                                  (isExpense ? '- ' : isIncome ? '+ ' : '') +
+                                  currencySymbol +
+                                  amount.toStringAsFixed(2);
+                              final amountColor = isExpense
+                                  ? Colors.red
+                                  : isIncome
+                                      ? Colors.green
+                                      : Colors.purple;
+                              final transactionDate = DateTime.tryParse(transaction.transactionDate ?? '') ?? DateTime.now();
+                              final time = _formatDate(transactionDate);
+                              final categoryName = _getCategoryNameFromId(transaction.category?.id ?? transaction.category?.name);
+                              final label = isTransfer
+                                  ? 'Transfer'
+                                  : categoryName.isNotEmpty
+                                      ? categoryName
+                                      : isIncome
+                                          ? 'Income'
+                                          : 'Expense';
+                              final description = transaction.description ?? 'No description';
+                              return _buildTransactionItem(
+                                icon: icon,
+                                iconColor: amountColor,
+                                title: label,
+                                subtitle: description,
+                                amount: formattedAmount,
+                                time: time,
+                                isExpense: isExpense,
+                              );
+                            }
+                            runningIndex += txList.length;
+                          }
+                          return SizedBox.shrink();
+                        },
+                      ),
+          ),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
@@ -853,31 +725,28 @@ class _TransactionScreenState extends State<TransactionScreen> {
         showUnselectedLabels: true,
         currentIndex: _currentIndex,
         onTap: (index) {
-          // If it's the add button (middle item)
           if (index == 2) {
             _toggleAddMenu();
             return;
           }
-
           if (index == 0) {
             _navigateToHome();
             return;
           }
-
+          if (index == 1) {
+            _navigateToTransaction();
+            return;
+          }
           if (index == 3) {
             _navigateToBudget();
             return;
           }
-
-          // If it's the profile tab
           if (index == 4) {
             _navigateToProfile();
             return;
           }
-
           setState(() {
             _currentIndex = index;
-            // Close add menu if it's open
             if (_isAddMenuOpen) {
               _isAddMenuOpen = false;
             }
@@ -892,7 +761,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
             icon: Icon(Icons.receipt_long),
             label: 'Transaction',
           ),
-          // Center add button - special styling
           BottomNavigationBarItem(
             icon: Container(
               width: 48,
@@ -902,9 +770,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                  _isAddMenuOpen ? Icons.close : Icons.add,
-                  color: Colors.white,
-                  size: 30
+                _isAddMenuOpen ? Icons.close : Icons.add,
+                color: Colors.white,
+                size: 30,
               ),
             ),
             label: '',
@@ -921,199 +789,111 @@ class _TransactionScreenState extends State<TransactionScreen> {
       ),
     );
   }
-  Widget _buildTransactionsList() {
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
+
+  Widget _buildTransactionItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required String amount,
+    required String time,
+    required bool isExpense,
+  }) {
+    // Parse the time string to DateTime if possible
+    DateTime? date;
+    try {
+      date = DateTime.tryParse(time);
+    } catch (_) {
+      date = null;
     }
-
-    if (hasError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
-            Text(errorMessage, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadData,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
+    String displayTime = time;
+    if (date != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final transactionDay = DateTime(date.year, date.month, date.day);
+      if (transactionDay == today) {
+        displayTime = 'Today';
+      } else if (transactionDay == yesterday) {
+        displayTime = 'Yesterday';
+      } else {
+        displayTime = DateFormat('MMM d, yyyy').format(date);
+      }
     }
-
-    if (filteredTransactions.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.hourglass_empty, size: 48, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text('No transactions found'),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: filteredTransactions.length,
-      itemBuilder: (context, index) {
-        return _buildTransactionItem(filteredTransactions[index]);
-      },
-    );
-  }
-
-  Widget _buildFilterChip(String label, TransactionType type) {
-    final isSelected = selectedType == type;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedType = type;
-          filterType = type;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColours.primaryColour : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppColours.primaryColour : Colors.grey.shade300,
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppStyles.medium(
-            size: 14,
-            color: isSelected ? Colors.white : Colors.black,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBalanceItem(String title, double amount, Color color, IconData icon) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 4),
-            Text(
-              title,
-              style: AppStyles.regular1(color: color, size: 14),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${defaultCurrencySymbol}${amount.toStringAsFixed(2)}',
-          style: AppStyles.bold(color: color, size: 16),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTransactionItem(TransactionModel transaction) {
-    final type = transaction.type?.toLowerCase() ?? '';
-    final isExpense = type == 'expense';
-    final isTransfer = type == 'transfer';
-    final isIncome = type == 'income';
-
-    String prefix;
-    Color amountColor;
-
-    if (isTransfer) {
-      prefix = '';
-      amountColor = AppColours.primaryColour;
-    } else if (isIncome) {
-      prefix = '+ ';
-      amountColor = AppColours.incomeColor;
-    } else {
-      prefix = '- ';
-      amountColor = AppColours.expenseColor;
-    }
-
-    final amount = transaction.amount ?? 0.0;
-    final formattedAmount = '$prefix$defaultCurrencySymbol${amount.toStringAsFixed(2)}';
-
-    DateTime transactionDate = DateTime.tryParse(transaction.transactionDate ?? '') ?? DateTime.now();
-
-    IconData icon = _getTransactionIcon(transaction);
-
-    // Get category name for display
-    String categoryName = _getCategoryNameFromId(transaction.category?.id ?? transaction.category?.name);
-    String label = isTransfer ? 'Transfer' :
-    categoryName.isNotEmpty ? categoryName :
-    isIncome ? 'Income' : 'Expense';
-
-    String description = transaction.description ?? 'No description';
-
-    // Add account type info to description if available
-    String accountTypeName = _getAccountTypeFromAccountId(transaction.accountId);
-    if (accountTypeName.isNotEmpty && accountTypeName != description) {
-      description = '$description - $accountTypeName';
-    }
-
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         children: [
-          // Icon container
+          // Icon
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: amountColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: amountColor),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 24,
+            ),
           ),
-          const SizedBox(width: 16),
-          // Transaction details
+          SizedBox(width: 16),
+          // Title and Subtitle
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
-                  style: AppStyles.medium(size: 16),
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
-                  description,
-                  style: AppStyles.regular1(color: Colors.grey, size: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
                 ),
               ],
             ),
           ),
-          // Amount and date
+          // Amount and Time
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                formattedAmount,
-                style: AppStyles.bold(color: amountColor, size: 16),
+                amount,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isExpense ? Colors.red : Colors.green,
+                ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
-                _formatDate(transactionDate), // FIXED: Now shows actual date
-                style: AppStyles.regular1(color: Colors.grey, size: 14),
+                displayTime,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                ),
               ),
             ],
           ),
@@ -1171,14 +951,34 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
   // FIXED: Completely rewritten filter bottom sheet to fix overflow issue
   void _showFilterBottomSheet() {
-    TransactionType tempFilterType = filterType;
-    SortBy tempSortBy = sortBy;
-    String tempSelectedCategory = selectedCategory;
-    String tempSelectedAccountType = selectedAccountType;
+    // Always use the current filterType as the initial value
+    final tempFilterType = ValueNotifier<TransactionType>(filterType);
+    final tempSortBy = ValueNotifier<SortBy>(sortBy);
 
+    void reopenFilterSheet() {
+      Navigator.of(context).pop();
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _showFilterBottomSheetWithValues(
+          tempFilterType,
+          tempSortBy,
+        );
+      });
+    }
+
+    _showFilterBottomSheetWithValues(
+      tempFilterType,
+      tempSortBy,
+    );
+  }
+
+  void _showFilterBottomSheetWithValues(
+    ValueNotifier<TransactionType> tempFilterType,
+    ValueNotifier<SortBy> tempSortBy,
+    {VoidCallback? reopenFilterSheet,}
+  ) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allow flexible height
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1186,9 +986,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return DraggableScrollableSheet(
-              initialChildSize: 0.75, // Start at 75% of screen height
-              minChildSize: 0.5, // Minimum 50% of screen height
-              maxChildSize: 0.9, // Maximum 90% of screen height
+              initialChildSize: 0.75,
+              minChildSize: 0.5,
+              maxChildSize: 0.9,
               expand: false,
               builder: (context, scrollController) {
                 return Container(
@@ -1196,7 +996,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header with handle
                       Center(
                         child: Container(
                           width: 40,
@@ -1208,18 +1007,15 @@ class _TransactionScreenState extends State<TransactionScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
                       Text('Filter Transactions', style: AppStyles.bold(size: 20)),
                       const SizedBox(height: 20),
-
-                      // Scrollable content
                       Expanded(
                         child: SingleChildScrollView(
                           controller: scrollController,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Transaction type filter
+                              // Type filter options
                               Text('Type', style: AppStyles.medium(size: 16)),
                               const SizedBox(height: 8),
                               Wrap(
@@ -1228,30 +1024,27 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                 children: [
                                   _buildFilterOption(
                                     'All',
-                                    tempFilterType == TransactionType.all,
-                                        () => setState(() => tempFilterType = TransactionType.all),
+                                    tempFilterType.value == TransactionType.all,
+                                        () => setState(() => tempFilterType.value = TransactionType.all),
                                   ),
                                   _buildFilterOption(
                                     'Income',
-                                    tempFilterType == TransactionType.income,
-                                        () => setState(() => tempFilterType = TransactionType.income),
+                                    tempFilterType.value == TransactionType.income,
+                                        () => setState(() => tempFilterType.value = TransactionType.income),
                                   ),
                                   _buildFilterOption(
                                     'Expense',
-                                    tempFilterType == TransactionType.expense,
-                                        () => setState(() => tempFilterType = TransactionType.expense),
+                                    tempFilterType.value == TransactionType.expense,
+                                        () => setState(() => tempFilterType.value = TransactionType.expense),
                                   ),
                                   _buildFilterOption(
                                     'Transfer',
-                                    tempFilterType == TransactionType.transfer,
-                                        () => setState(() => tempFilterType = TransactionType.transfer),
+                                    tempFilterType.value == TransactionType.transfer,
+                                        () => setState(() => tempFilterType.value = TransactionType.transfer),
                                   ),
                                 ],
                               ),
-
                               const SizedBox(height: 24),
-
-                              // Sort by filter
                               Text('Sort by', style: AppStyles.medium(size: 16)),
                               const SizedBox(height: 8),
                               Wrap(
@@ -1260,38 +1053,36 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                 children: [
                                   _buildFilterOption(
                                     'Newest',
-                                    tempSortBy == SortBy.newest,
-                                        () => setState(() => tempSortBy = SortBy.newest),
+                                    tempSortBy.value == SortBy.newest,
+                                        () => setState(() => tempSortBy.value = SortBy.newest),
                                   ),
                                   _buildFilterOption(
                                     'Oldest',
-                                    tempSortBy == SortBy.oldest,
-                                        () => setState(() => tempSortBy = SortBy.oldest),
+                                    tempSortBy.value == SortBy.oldest,
+                                        () => setState(() => tempSortBy.value = SortBy.oldest),
                                   ),
                                   _buildFilterOption(
                                     'Highest',
-                                    tempSortBy == SortBy.highest,
-                                        () => setState(() => tempSortBy = SortBy.highest),
+                                    tempSortBy.value == SortBy.highest,
+                                        () => setState(() => tempSortBy.value = SortBy.highest),
                                   ),
                                   _buildFilterOption(
                                     'Lowest',
-                                    tempSortBy == SortBy.lowest,
-                                        () => setState(() => tempSortBy = SortBy.lowest),
+                                    tempSortBy.value == SortBy.lowest,
+                                        () => setState(() => tempSortBy.value = SortBy.lowest),
                                   ),
                                 ],
                               ),
-
                               const SizedBox(height: 24),
-
-                              // Category filter
                               Text('Category', style: AppStyles.medium(size: 16)),
                               const SizedBox(height: 8),
                               GestureDetector(
                                 onTap: () {
-                                  Navigator.pop(context);
-                                  _showCategorySelector(tempSelectedCategory, (category) {
-                                    tempSelectedCategory = category;
-                                    _showFilterBottomSheet(); // Re-open the filter sheet
+                                  _showCategorySelector(selectedCategory, (category) {
+                                    setState(() {
+                                      selectedCategory = category;
+                                    });
+                                    Navigator.pop(context);
                                   });
                                 },
                                 child: Container(
@@ -1307,9 +1098,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          tempSelectedCategory.isEmpty
+                                          selectedCategory.isEmpty
                                               ? 'All Categories'
-                                              : _getCategoryNameById(tempSelectedCategory),
+                                              : _getCategoryNameById(selectedCategory),
                                           style: AppStyles.regular1(size: 14),
                                         ),
                                       ),
@@ -1319,18 +1110,19 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                 ),
                               ),
 
-                              const SizedBox(height: 16),
-
-                              // Account type filter
+                              const SizedBox(height: 24),
                               Text('Account', style: AppStyles.medium(size: 16)),
                               const SizedBox(height: 8),
                               GestureDetector(
                                 onTap: () {
-                                  Navigator.pop(context);
-                                  _showAccountTypeSelector(tempSelectedAccountType, (accountType) {
-                                    tempSelectedAccountType = accountType;
-                                    _showFilterBottomSheet(); // Re-open the filter sheet
-                                  });
+                                  if (reopenFilterSheet != null) {
+                                    _showAccountTypeSelector(selectedAccountType, (accountType) {
+                                      setState(() {
+                                        selectedAccountType = accountType;
+                                      });
+                                      reopenFilterSheet();
+                                    });
+                                  }
                                 },
                                 child: Container(
                                   width: double.infinity,
@@ -1345,9 +1137,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          tempSelectedAccountType.isEmpty
+                                          selectedAccountType.isEmpty
                                               ? 'All Accounts'
-                                              : _getAccountTypeNameById(tempSelectedAccountType),
+                                              : _getAccountTypeNameById(selectedAccountType),
                                           style: AppStyles.regular1(size: 14),
                                         ),
                                       ),
@@ -1357,13 +1149,11 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                 ),
                               ),
 
-                              const SizedBox(height: 40), // Extra space at bottom
+                              const SizedBox(height: 40),
                             ],
                           ),
                         ),
                       ),
-
-                      // Fixed bottom buttons
                       Container(
                         padding: const EdgeInsets.only(top: 16),
                         child: Row(
@@ -1372,10 +1162,10 @@ class _TransactionScreenState extends State<TransactionScreen> {
                             TextButton(
                               onPressed: () {
                                 setState(() {
-                                  tempFilterType = TransactionType.all;
-                                  tempSortBy = SortBy.newest;
-                                  tempSelectedCategory = '';
-                                  tempSelectedAccountType = '';
+                                  tempFilterType.value = TransactionType.all;
+                                  tempSortBy.value = SortBy.newest;
+                                  selectedCategory = '';
+                                  selectedAccountType = '';
                                 });
                               },
                               child: Text(
@@ -1385,11 +1175,10 @@ class _TransactionScreenState extends State<TransactionScreen> {
                             ),
                             ElevatedButton(
                               onPressed: () {
-                                this.setState(() {
-                                  filterType = tempFilterType;
-                                  sortBy = tempSortBy;
-                                  selectedCategory = tempSelectedCategory;
-                                  selectedAccountType = tempSelectedAccountType;
+                                setState(() {
+                                  filterType = tempFilterType.value;
+                                  selectedType = tempFilterType.value;
+                                  sortBy = tempSortBy.value;
                                 });
                                 Navigator.pop(context);
                               },
@@ -1481,7 +1270,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
             leading: const Icon(Icons.account_balance),
             selected: currentAccountType.isEmpty,
             onTap: () {
-              onAccountTypeSelected('');
+              setState(() {
+                selectedAccountType = '';
+              });
               Navigator.pop(context);
             },
           );
@@ -1496,7 +1287,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
             leading: const Icon(Icons.account_balance_wallet),
             selected: accountTypeId == currentAccountType,
             onTap: () {
-              onAccountTypeSelected(accountTypeId);
+              setState(() {
+                selectedAccountType = accountTypeId;
+              });
               Navigator.pop(context);
             },
           );
@@ -1521,7 +1314,43 @@ class _TransactionScreenState extends State<TransactionScreen> {
               Text('Select Category', style: AppStyles.bold(size: 20)),
               const SizedBox(height: 20),
               Expanded(
-                child: _buildCategoryList(currentCategory, onCategorySelected),
+                child: ListView.builder(
+                  itemCount: categories.length + 1, // +1 for "All Categories" option
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      // All Categories option
+                      return ListTile(
+                        title: const Text('All Categories'),
+                        leading: const Icon(Icons.category),
+                        selected: currentCategory.isEmpty,
+                        onTap: () {
+                          setState(() {
+                            selectedCategory = '';
+                          });
+                          Navigator.pop(context);
+                        },
+                      );
+                    } else {
+                      // Category options
+                      final category = categories[index - 1];
+                      final categoryId = category.id ?? category['id'] ?? '';
+                      final categoryName = category.name ?? category['name'] ?? 'Unknown';
+                      final iconName = category.icon ?? category['icon'];
+
+                      return ListTile(
+                        title: Text(categoryName),
+                        leading: Icon(_getIconFromName(iconName)),
+                        selected: categoryId == currentCategory,
+                        onTap: () {
+                          setState(() {
+                            selectedCategory = categoryId;
+                          });
+                          Navigator.pop(context);
+                        },
+                      );
+                    }
+                  },
+                ),
               ),
             ],
           ),
@@ -1530,50 +1359,25 @@ class _TransactionScreenState extends State<TransactionScreen> {
     );
   }
 
-  Widget _buildCategoryList(String currentCategory, Function(String) onCategorySelected) {
-    if (isLoadingCategories) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  // Helper method to get category icon from ID
+  IconData _getCategoryIconFromId(String? categoryId) {
+    if (categoryId == null || categories.isEmpty) return Icons.category;
 
-    if (hasCategoryError) {
-      return Center(
-        child: Text(categoryErrorMessage),
+    try {
+      final category = categories.firstWhere(
+            (cat) => (cat.id ?? cat['id']) == categoryId,
+        orElse: () => null,
       );
+
+      if (category != null) {
+        String? iconName = category.icon ?? category['icon'];
+        return _getIconFromName(iconName);
+      }
+    } catch (e) {
+      // Handle case where no matching category is found
     }
 
-    return ListView.builder(
-      itemCount: categories.length + 1, // +1 for "All Categories" option
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          // All Categories option
-          return ListTile(
-            title: const Text('All Categories'),
-            leading: const Icon(Icons.category),
-            selected: currentCategory.isEmpty,
-            onTap: () {
-              onCategorySelected('');
-              Navigator.pop(context);
-            },
-          );
-        } else {
-          // Category options
-          final category = categories[index - 1];
-          final categoryId = category.id ?? category['id'] ?? '';
-          final categoryName = category.name ?? category['name'] ?? 'Unknown';
-          final iconName = category.icon ?? category['icon'];
-
-          return ListTile(
-            title: Text(categoryName),
-            leading: Icon(_getIconFromName(iconName)),
-            selected: categoryId == currentCategory,
-            onTap: () {
-              onCategorySelected(categoryId);
-              Navigator.pop(context);
-            },
-          );
-        }
-      },
-    );
+    return Icons.category;
   }
 }
 
