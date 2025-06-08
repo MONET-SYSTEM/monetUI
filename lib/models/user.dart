@@ -49,9 +49,6 @@ class UserModel{
   @HiveField(14)
   String? city;
 
-  @HiveField(15)
-  String? timezone;
-
   static String userBox = 'users';
 
   UserModel();
@@ -72,8 +69,7 @@ class UserModel{
       ..dateOfBirth = json['date_of_birth'] != null ? DateTime.tryParse(json['date_of_birth']) : null
       ..gender = json['gender']
       ..country = json['country']
-      ..city = json['city']
-      ..timezone = json['timezone'];
+      ..city = json['city'];
   }
 
   Map<String, dynamic> toJson() {
@@ -93,7 +89,6 @@ class UserModel{
       'gender': gender,
       'country': country,
       'city': city,
-      'timezone': timezone,
     };
   }
 }

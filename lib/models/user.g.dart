@@ -31,14 +31,13 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
       ..dateOfBirth = fields[11] as DateTime?
       ..gender = fields[12] as String?
       ..country = fields[13] as String?
-      ..city = fields[14] as String?
-      ..timezone = fields[15] as String?;
+      ..city = fields[14] as String?;
   }
 
   @override
   void write(BinaryWriter writer, UserModel obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -68,9 +67,7 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
       ..writeByte(13)
       ..write(obj.country)
       ..writeByte(14)
-      ..write(obj.city)
-      ..writeByte(15)
-      ..write(obj.timezone);
+      ..write(obj.city);
   }
 
   @override

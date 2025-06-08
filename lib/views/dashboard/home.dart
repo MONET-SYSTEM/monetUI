@@ -35,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<TransactionModel> monthlyTransactions = []; // Transactions for selected month
   List<TransactionModel> filteredTransactions = [];
   List<AccountModel> accounts = [];
+  List<dynamic> categories = [];
   bool isLoading = true;
   int _currentIndex = 0;
   bool _isAddMenuOpen = false;
@@ -127,39 +128,50 @@ class _HomeScreenState extends State<HomeScreen> {
 
     switch (currentFilter) {
       case TransactionFilter.today:
+        // Filter for today - transactions matching selected date
         filteredTransactions = allTransactions.where((transaction) {
           final transDate = DateTime.parse(transaction.transactionDate);
-          return transDate.year == now.year &&
-              transDate.month == now.month &&
-              transDate.day == now.day;
+          return transDate.year == selectedDate.year &&
+              transDate.month == selectedDate.month &&
+              transDate.day == selectedDate.day;
         }).toList();
         break;
 
       case TransactionFilter.week:
-      // Calculate start of current week (Monday)
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+        // Calculate start of selected week (Monday)
+        final startOfWeek = selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
         final startOfWeekDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-
-        // Calculate end of week (Sunday)
-        final endOfWeekDate = startOfWeekDate.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
-
+        final endOfWeekDate = startOfWeekDate.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59, milliseconds: 999));
         filteredTransactions = allTransactions.where((transaction) {
-          final transDate = DateTime.parse(transaction.transactionDate);
-          return transDate.isAfter(startOfWeekDate.subtract(const Duration(seconds: 1))) &&
-              transDate.isBefore(endOfWeekDate.add(const Duration(seconds: 1)));
+          try {
+            final transDate = DateTime.parse(transaction.transactionDate);
+            // Include transactions on or after the start date and on or before the end date
+            return (transDate.isAtSameMomentAs(startOfWeekDate) || transDate.isAfter(startOfWeekDate)) &&
+                   (transDate.isAtSameMomentAs(endOfWeekDate) || transDate.isBefore(endOfWeekDate));
+          } catch (e) {
+            // Handle invalid dates
+            print("Invalid date format: ${transaction.transactionDate}, Error: $e");
+            return false;
+          }
         }).toList();
         break;
 
       case TransactionFilter.month:
-      // Use the monthly transactions for current month filter
+        // Use transactions from the selected month
         filteredTransactions = monthlyTransactions;
         break;
     }
 
     // Sort filtered transactions by date (newest first)
-    filteredTransactions.sort((a, b) =>
-        DateTime.parse(b.transactionDate).compareTo(
-            DateTime.parse(a.transactionDate)));
+    filteredTransactions.sort((a, b) {
+      try {
+        return DateTime.parse(b.transactionDate).compareTo(
+            DateTime.parse(a.transactionDate));
+      } catch (e) {
+        // Handle invalid dates
+        return 0;
+      }
+    });
   }
 
   void _updateSpendingData() {
@@ -176,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ).fold(0.0, (sum, transaction) => sum + transaction.amount);
 
         // Set today's expenses at the current weekday position
-        final todayWeekday = now.weekday - 1; // Convert to 0-6 (Mon-Sun)
+        final todayWeekday = selectedDate.weekday - 1; // Convert to 0-6 (Mon-Sun)
         if (todayWeekday >= 0 && todayWeekday < 7) {
           spendData[todayWeekday] = todayExpenses;
         }
@@ -184,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       case TransactionFilter.week:
       // For week, show daily data for the current week using ALL transactions
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+        final startOfWeek = selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
 
         for (int i = 0; i < 7; i++) {
           final day = startOfWeek.add(Duration(days: i));
@@ -265,6 +277,39 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'housing':
         return Icons.home;
       default:
+        return transaction.type.toLowerCase() == 'income'
+            ? Icons.arrow_downward
+            : Icons.arrow_upward;
+    }
+  }
+
+  // Improved transaction icon selection - considers category and type more effectively
+  IconData _getTransactionIconV2(TransactionModel transaction) {
+    if (transaction.type.toLowerCase() == 'transfer') {
+      return Icons.swap_horiz;
+    }
+
+    switch (transaction.category?.name?.toLowerCase()) {
+      case 'food':
+        return Icons.restaurant;
+      case 'shopping':
+        return Icons.shopping_cart;
+      case 'transport':
+        return Icons.directions_car;
+      case 'bills':
+        return Icons.receipt;
+      case 'entertainment':
+        return Icons.movie;
+      case 'health':
+        return Icons.medical_services;
+      case 'education':
+        return Icons.school;
+      case 'groceries':
+        return Icons.local_grocery_store;
+      case 'housing':
+        return Icons.home;
+      default:
+        // Fallback to type-based icons
         return transaction.type.toLowerCase() == 'income'
             ? Icons.arrow_downward
             : Icons.arrow_upward;
@@ -543,7 +588,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 AppSpacing.vertical(size: 8),
                                 Text(
-                                  '₱${accountBalance.toStringAsFixed(2)}',
+                                  '${defaultCurrencySymbol}${accountBalance.toStringAsFixed(2)}',
                                   style: AppStyles.titleX(size: 36, color: Colors.black87),
                                 ),
                               ],
@@ -654,10 +699,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           AppSpacing.vertical(size: 16),
-                          // FIXED: Segmented Tabs and See All Option - Using proper layout to prevent overflow
+                          // Segmented Tabs only (no See All)
                           Row(
                             children: [
-                              // Filter buttons with flexible width
                               Flexible(
                                 flex: 3,
                                 child: SingleChildScrollView(
@@ -685,18 +729,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                               ),
-                              // Fixed width for "See All" to prevent overflow
-                              const SizedBox(width: 8),
-                              InkWell(
-                                onTap: () {
-                                  // Navigate to detailed analytics
-                                },
-                                child: Text(
-                                  'See All',
-                                  style: AppStyles.regular1(
-                                      color: AppColours.primaryColour),
-                                ),
-                              ),
                             ],
                           ),
                         ],
@@ -719,18 +751,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              TextButton(
-                                onPressed: () {
-                                  // Show all transactions for the current filter
-                                  setState(() {
-                                    // This will refresh the UI to show all transactions
-                                    // under the current filter
-                                    _applyTransactionFilter();
-                                  });
-                                },
-                                child: Text('See all', style: TextStyle(
-                                    color: AppColours.primaryColour)),
-                              ),
+                              // Removed See All button
                             ],
                           ),
                           AppSpacing.vertical(size: 16),
@@ -747,21 +768,31 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           )
                               : ListView.builder(
-                            shrinkWrap: true, // Important - allows ListView inside SingleChildScrollView
-                            physics: const NeverScrollableScrollPhysics(), // Disable scrolling - parent handles it
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
                             itemCount: filteredTransactions.length,
                             itemBuilder: (context, index) {
                               final transaction = filteredTransactions[index];
+
+                              // Get account name and handle errors properly
+                              String accountName = _getAccountNameById(transaction.accountId);
+
+                              // Format title and subtitle correctly
+                              final categoryName = transaction.category?.name ??
+                                  (transaction.type.toLowerCase() == 'transfer' ? 'Transfer' :
+                                  transaction.type.toLowerCase() == 'income' ? 'Income' : 'Expense');
+
+                              // Format subtitle as "Account Name - Description"
+                              final subtitle = transaction.description?.isNotEmpty == true
+                                  ? '$accountName - ${transaction.description}'
+                                  : accountName;
+
                               return _buildTransactionItem(
-                                icon: _getTransactionIcon(transaction),
-                                label: transaction.category?.name ??
-                                    (transaction.type.toLowerCase() == 'income'
-                                        ? 'Income'
-                                        : transaction.type.toLowerCase() == 'transfer'
-                                        ? 'Transfer'
-                                        : 'Expense'),
-                                description: transaction.description ??
-                                    'No description',
+                                icon: transaction.category?.icon != null && transaction.category?.icon != ''
+                                    ? _getCategoryIconFromId(transaction.category?.id)
+                                    : Icons.category,
+                                label: categoryName,
+                                description: subtitle,
                                 amount: transaction.amount,
                                 type: transaction.type,
                                 time: transaction.getFormattedTime(),
@@ -975,7 +1006,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Helper widget for displaying a transaction item
   Widget _buildTransactionItem({
     required IconData icon,
     required String label,
@@ -995,8 +1025,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (isTransfer) {
       prefix = '';  // No prefix for transfers
-      amountColor = AppColours.primaryColour; // Use primary color for transfers
-      label = 'Transfer'; // Always show 'Transfer' as the label
+      amountColor = AppColours.primaryColour;
     } else if (isIncome) {
       prefix = '+ ';
       amountColor = AppColours.incomeColor;
@@ -1009,49 +1038,176 @@ class _HomeScreenState extends State<HomeScreen> {
     final formattedAmount = '$prefix$currencySymbol${amount.toStringAsFixed(2)}';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         children: [
-          // Icon container
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: AppColours.inputBackground,
-              borderRadius: BorderRadius.circular(8),
+              color: amountColor.withOpacity(0.1),
+              shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: amountColor),
+            child: Icon(icon, color: amountColor, size: 20),
           ),
           const SizedBox(width: 16),
-          // Label and description
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: AppStyles.medium(size: 16)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: AppStyles.regular1(color: Colors.grey, size: 14),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          // Amount and time
+          const SizedBox(width: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(formattedAmount,
-                  style: AppStyles.bold(color: amountColor, size: 16)),
+              Text(
+                formattedAmount,
+                style: TextStyle(
+                  color: amountColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text(time,
-                  style: AppStyles.regular1(color: Colors.grey, size: 14)),
+              Text(
+                time,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                ),
+              ),
             ],
           ),
         ],
       ),
     );
   }
-}
 
+  // Helper method to get category icon from ID
+  IconData _getCategoryIconFromId(String? categoryId) {
+    if (categoryId == null || categories.isEmpty) return Icons.category;
+    try {
+      final category = categories.firstWhere(
+        (cat) => (cat.id ?? cat['id']) == categoryId,
+        orElse: () => null,
+      );
+      if (category != null) {
+        String? iconName = category.icon ?? category['icon'];
+        return _getIconFromName(iconName);
+      }
+    } catch (e) {
+      // Handle case where no matching category is found
+    }
+    return Icons.category;
+  }
+
+  // Helper method to get category name by ID (returns the category name, not type or id)
+  String _getCategoryNameById(String? categoryId) {
+    if (categoryId == null || categories.isEmpty) return '';
+    try {
+      final category = categories.firstWhere(
+        (cat) => (cat.id ?? cat['id']) == categoryId,
+        orElse: () => null,
+      );
+      if (category != null) {
+        if (category.name != null && category.name is String) {
+          return category.name;
+        }
+        if (category['name'] != null && category['name'] is String) {
+          return category['name'];
+        }
+      }
+    } catch (e) {}
+    return '';
+  }
+
+  // Helper to get icon from icon name string
+  IconData _getIconFromName(String? iconName) {
+    if (iconName == null) return Icons.category;
+    switch (iconName.toLowerCase()) {
+      case 'shopping_bag':
+      case 'shopping':
+        return Icons.shopping_bag;
+      case 'restaurant':
+      case 'food':
+        return Icons.restaurant;
+      case 'directions_bus':
+      case 'transport':
+      case 'transportation':
+        return Icons.directions_bus;
+      case 'work':
+      case 'business':
+        return Icons.work;
+      case 'subscriptions':
+      case 'entertainment':
+        return Icons.subscriptions;
+      case 'swap_horiz':
+      case 'transfer':
+        return Icons.swap_horiz;
+      case 'payment':
+      case 'money':
+        return Icons.payment;
+      case 'home':
+        return Icons.home;
+      case 'medical_services':
+      case 'health':
+        return Icons.medical_services;
+      case 'school':
+      case 'education':
+        return Icons.school;
+      case 'local_gas_station':
+      case 'fuel':
+        return Icons.local_gas_station;
+      case 'phone':
+        return Icons.phone;
+      case 'electric_bolt':
+      case 'utilities':
+        return Icons.electric_bolt;
+      default:
+        return Icons.category;
+    }
+  }
+
+  // Helper method to get account name by ID with proper error handling
+  String _getAccountNameById(String accountId) {
+    try {
+      final account = accounts.firstWhere(
+        (acc) => acc.id == accountId,
+      );
+      return account?.name ?? 'Unknown Account';
+    } catch (e) {
+      return 'Unknown Account';
+    }
+  }
+}

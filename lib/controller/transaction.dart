@@ -270,4 +270,201 @@ class TransactionController {
       );
     }
   }
+
+  static Future<Result<TransactionModel>> updateTransaction(TransactionModel transaction) async {
+    try {
+      final formFields = <String, dynamic>{};
+      if (transaction.accountId.isNotEmpty) formFields['account_id'] = transaction.accountId;
+      if (transaction.type.isNotEmpty) formFields['type'] = transaction.type;
+      if (transaction.amount != null) formFields['amount'] = transaction.amount.toString();
+      if (transaction.transactionDate.isNotEmpty) formFields['transaction_date'] = transaction.transactionDate;
+      if (transaction.isReconciled != null) formFields['is_reconciled'] = transaction.isReconciled ? '1' : '0';  // Convert bool to string
+
+      // Handle category as model or map
+      String? categoryId;
+      if (transaction.category != null) {
+        try {
+          // Try as model
+          if (transaction.category?.id != null && (transaction.category!.id as String).isNotEmpty) {
+            categoryId = transaction.category!.id;
+          } else if (transaction.category is Map && (transaction.category as Map).containsKey('id')) {
+            final id = (transaction.category as Map)['id'];
+            if (id != null && id.toString().isNotEmpty) {
+              categoryId = id.toString();
+            }
+          }
+        } catch (_) {
+          // fallback
+        }
+      }
+      if (categoryId != null && categoryId.isNotEmpty) {
+        formFields['category_id'] = categoryId;
+      }
+
+      if (transaction.description != null && transaction.description!.isNotEmpty) {
+        formFields['description'] = transaction.description;
+      }
+      if (transaction.reference != null && transaction.reference!.isNotEmpty) {
+        formFields['reference'] = transaction.reference;
+      }
+
+      // Use JSON instead of FormData for update
+      final url = '${ApiRoutes.transactionUrl}/${transaction.id}';
+      print("Updating transaction at: $url with data: $formFields");
+
+      // Use PUT with JSON
+      final response = await ApiService.put(url, formFields);
+      print("Update transaction response: [32m");
+      print(response.data);
+      print("\u001b[0m");
+
+      if (response.data == null) {
+        return Result<TransactionModel>(isSuccess: false, message: "Empty response from server");
+      }
+
+      Map<String, dynamic>? transactionData;
+      if (response.data is Map) {
+        Map<String, dynamic> responseMap = response.data;
+
+        // Check for success indicators
+        bool isSuccess = responseMap['success'] == true ||
+            responseMap['status'] == 'success' ||
+            response.statusCode == 200 ||
+            response.statusCode == 201;
+
+        if (!isSuccess && responseMap['message'] != null) {
+          return Result<TransactionModel>(
+              isSuccess: false,
+              message: responseMap['message'],
+              errors: responseMap['errors']
+          );
+        }
+
+        // Try to extract transaction data from various response structures
+        if (responseMap['results'] != null) {
+          var results = responseMap['results'];
+          if (results is Map<String, dynamic>) {
+            transactionData = results;
+          } else if (results is List && results.isNotEmpty) {
+            transactionData = results.first;
+          }
+        } else if (responseMap['data'] != null) {
+          var data = responseMap['data'];
+          if (data is Map<String, dynamic> && data.containsKey('id')) {
+            transactionData = data;
+          } else if (data is List && data.isNotEmpty) {
+            transactionData = data.first;
+          }
+        } else if (responseMap['transaction'] != null) {
+          transactionData = responseMap['transaction'];
+        } else if (responseMap.containsKey('id')) {
+          transactionData = responseMap;
+        }
+      }
+
+      // If no transaction data returned but update was successful, use the original with updates
+      if (transactionData == null || !transactionData.containsKey('id')) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // Create a map from the original transaction with updates applied
+          transactionData = {
+            'id': transaction.id,
+            'account_id': transaction.accountId,
+            'type': transaction.type,
+            'amount': transaction.amount,
+            'category_id': transaction.category?.id,
+            'description': transaction.description,
+            'transaction_date': transaction.transactionDate,
+            'is_reconciled': transaction.isReconciled,
+            'reference': transaction.reference,
+          };
+
+          print("Created fallback transaction data for update: $transactionData");
+        } else {
+          return Result<TransactionModel>(
+            isSuccess: false,
+            message: "Transaction updated but no transaction data returned",
+          );
+        }
+      }
+
+      final updatedModel = await TransactionService.create(transactionData);
+
+      return Result<TransactionModel>(
+        isSuccess: true,
+        message: response.data is Map && response.data['message'] != null
+            ? response.data['message']
+            : "Transaction updated successfully",
+        results: updatedModel
+      );
+    } on DioException catch (e) {
+      final message = ApiService.errorMessage(e);
+      print("DioException updating transaction: $message");
+      print("Response status: ${e.response?.statusCode}");
+      print("Response data: ${e.response?.data}");
+
+      return Result<TransactionModel>(
+          isSuccess: false,
+          message: message,
+          errors: e.response?.data?['errors']
+      );
+    } catch (e) {
+      print("Transaction update error: $e");
+      print("Stack trace: ${StackTrace.current}");
+
+      return Result<TransactionModel>(
+          isSuccess: false,
+          message: "Failed to update transaction: $e"
+      );
+    }
+  }
+
+  static Future<Result<void>> deleteTransaction(String id) async {
+    try {
+      final url = '${ApiRoutes.transactionUrl}/$id';
+      print("Deleting transaction at: $url");
+
+      final response = await ApiService.delete(url);
+      print("Delete transaction response status: ${response.statusCode}");
+      print("Delete transaction response data: ${response.data}");
+
+      // Check for success status codes
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        // Successfully deleted on server, now remove from local storage
+        await TransactionService.delete(id);
+        return Result<void>(
+          isSuccess: true,
+          message: response.data is Map && response.data['message'] != null
+              ? response.data['message']
+              : "Transaction deleted successfully"
+        );
+      } else {
+        // Server responded with non-success status code
+        String errorMessage = "Failed to delete transaction";
+        if (response.data is Map && response.data['message'] != null) {
+          errorMessage = response.data['message'];
+        }
+        print("Delete transaction failed with message: $errorMessage");
+        return Result<void>(isSuccess: false, message: errorMessage);
+      }
+    } on DioException catch (e) {
+      final message = ApiService.errorMessage(e);
+      print("DioException deleting transaction: $message");
+      print("Response status: ${e.response?.statusCode}");
+      print("Response data: ${e.response?.data}");
+
+      return Result<void>(
+        isSuccess: false,
+        message: message,
+        errors: e.response?.data?['errors']
+      );
+    } catch (e) {
+      print("Transaction delete error: $e");
+      print("Stack trace: ${StackTrace.current}");
+
+      return Result<void>(
+        isSuccess: false,
+        message: "Failed to delete transaction: $e"
+      );
+    }
+  }
 }

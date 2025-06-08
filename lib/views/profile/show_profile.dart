@@ -134,16 +134,6 @@ class _ShowProfileScreenState extends State<ShowProfileScreen> {
                             style: AppStyles.regular1(color: Colors.grey.shade700),
                             textAlign: TextAlign.center,
                           ),
-                          // Show timezone if available
-                          if (_user!.timezone != null && _user!.timezone!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                "Timezone: ${_user!.timezone}",
-                                style: AppStyles.regular1(color: Colors.grey.shade700, size: 12),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
                           AppSpacing.vertical(size: 32),
                           // Profile information card
                           Container(
@@ -202,8 +192,6 @@ class _ShowProfileScreenState extends State<ShowProfileScreen> {
                                   _buildProfileField(label: 'Country', value: _user!.country!),
                                 if (_user!.city != null && _user!.city!.isNotEmpty)
                                   _buildProfileField(label: 'City', value: _user!.city!),
-                                if (_user!.timezone != null && _user!.timezone!.isNotEmpty)
-                                  _buildProfileField(label: 'Timezone', value: _user!.timezone!),
                               ],
                             ),
                           ),

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:monet/models/category.dart';
 import 'package:monet/resources/app_strings.dart';
 import 'package:monet/services/api.dart';
 import 'package:monet/services/api_routes.dart';
@@ -73,6 +74,15 @@ class CategoryController {
     } catch (e) {
       print("Exception in CategoryController.createCategory(): $e");
       return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
+    }
+  }
+
+  static Future<Result> updateCategory(CategoryModel category) async {
+    try {
+      await CategoryService.updateCategory(category);
+      return Result(isSuccess: true, message: "Category updated successfully");
+    } catch (e) {
+      return Result(isSuccess: false, message: "Failed to update category: $e");
     }
   }
 }

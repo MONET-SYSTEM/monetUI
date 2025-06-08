@@ -45,4 +45,9 @@ class CategoryService {
     final categoryBox = await Hive.openBox<CategoryModel>(CategoryModel.categoryBox);
     await categoryBox.clear();
   }
+
+  static Future<void> updateCategory(CategoryModel category) async {
+    final categoryBox = await Hive.openBox<CategoryModel>(CategoryModel.categoryBox);
+    await categoryBox.put(category.id, category);
+  }
 }

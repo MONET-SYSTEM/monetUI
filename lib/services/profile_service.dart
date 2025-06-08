@@ -50,7 +50,6 @@ class ProfileService {
     String? gender,
     String? country,
     String? city,
-    String? timezone,
   }) async {
     isLoading.value = true;
     error.value = null;
@@ -66,7 +65,6 @@ class ProfileService {
         gender: gender,
         country: country,
         city: city,
-        timezone: timezone,
       );
 
       if (result.isSuccess && result.results != null) {

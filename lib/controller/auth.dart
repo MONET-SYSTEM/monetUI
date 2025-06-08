@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:hive/hive.dart';
 import 'package:monet/controller/account.dart';
 import 'package:monet/models/user.dart';
 import 'package:monet/resources/app_strings.dart';
@@ -26,7 +27,11 @@ class AuthController {
         return Result(isSuccess: false, message: "Invalid response format from server");
       }
 
-      final userModel = await AuthService.create(result['user'], result['token']);
+      final token = result['token'] ?? '';
+      final userModel = await AuthService.create(result['user'], token);
+      final user = await AuthService.get();
+      print('Token after register: \'${user?.token}\'');
+
       return Result(isSuccess: true, message: response.data['message'] ?? "Registration successful", results: userModel);
     } on DioException catch (e) {
       final message = ApiService.errorMessage(e);
@@ -54,6 +59,10 @@ class AuthController {
       }
 
       final userModel = await AuthService.create(result['user'], result['token']);
+
+      // Debug print to verify token is saved
+      final user = await AuthService.get();
+      print('Token after login: \'${user?.token}\'');
 
       // TODO: Improve Load Account
       await AccountController.load();
@@ -104,7 +113,17 @@ class AuthController {
         return Result(isSuccess: false, message: "Invalid response format from server");
       }
 
+      // Always ensure token is set in userModel after update
       final userModel = await AuthService.update(result['user']);
+      if (result['token'] != null && result['token'].toString().isNotEmpty) {
+        userModel.token = result['token'];
+        final userBox = await Hive.openBox(UserModel.userBox);
+        await userBox.put(0, userModel);
+        print('Token after verification: \'${userModel.token}\'');
+      } else {
+        // If token is not present in result, ensure userModel.token is not empty
+        print('Token after verification: \'${userModel.token}\'');
+      }
       return Result(isSuccess: true, message: response.data['message'] ?? "Verification successful", results: userModel);
     } on DioException catch (e) {
       final message = ApiService.errorMessage(e);
@@ -188,5 +207,8 @@ class AuthController {
     }
   }
 
+  static Future<bool> hasPin() async {
+    return await AuthService.hasPin();
+  }
 
 }

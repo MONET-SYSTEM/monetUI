@@ -21,6 +21,23 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
   int step = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _checkIfPinExists();
+  }
+
+  Future<void> _checkIfPinExists() async {
+    final hasPin = await AuthController.hasPin();
+    if (hasPin && mounted) {
+      final route = await Helper.initialRoute();
+      if (mounted) {
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(route, (Route<dynamic> route) => false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColours.primaryColour,

@@ -139,7 +139,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   Future<void> _resend() async {
-    if ((_timer != null && _timer!.isActive) || _isLoading) return;
+    if (_isLoading) return;
 
     setState(() => _isLoading = true);
     final result = await AuthController.otp();

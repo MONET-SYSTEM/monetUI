@@ -115,5 +115,33 @@ class TransactionModel {
       return DateTime.now(); // Fallback
     }
   }
-}
 
+  // Add a copyWith method for updating fields
+  TransactionModel copyWith({
+    String? id,
+    String? accountId,
+    String? accountName,
+    CategoryModel? category,
+    double? amount,
+    String? amountFormatted,
+    String? type,
+    String? description,
+    String? transactionDate,
+    bool? isReconciled,
+    String? reference,
+  }) {
+    final model = TransactionModel();
+    model.id = id ?? this.id;
+    model.accountId = accountId ?? this.accountId;
+    model.accountName = accountName ?? this.accountName;
+    model.category = category ?? this.category;
+    model.amount = amount ?? this.amount;
+    model.amountFormatted = amountFormatted ?? this.amountFormatted;
+    model.type = type ?? this.type;
+    model.description = description ?? this.description;
+    model.transactionDate = transactionDate ?? this.transactionDate;
+    model.isReconciled = isReconciled ?? this.isReconciled;
+    model.reference = reference ?? this.reference;
+    return model;
+  }
+}

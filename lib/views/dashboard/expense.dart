@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:monet/controller/account.dart';
 import 'package:monet/models/account.dart';
+import 'package:monet/models/transaction.dart';
 import 'package:monet/resources/app_colours.dart';
 import 'package:monet/resources/app_styles.dart';
 import 'package:monet/resources/app_spacing.dart';
@@ -8,9 +9,11 @@ import 'package:monet/models/category.dart';
 import 'package:monet/controller/category.dart';
 import 'package:monet/controller/transaction.dart';
 import 'package:monet/utils/helper.dart';
+import 'package:monet/views/dashboard/frequency.dart';
 
 class ExpenseScreen extends StatefulWidget {
-  const ExpenseScreen({Key? key}) : super(key: key);
+  const ExpenseScreen({Key? key, this.transaction}) : super(key: key);
+  final TransactionModel? transaction;
 
   @override
   State<ExpenseScreen> createState() => _ExpenseScreenState();
@@ -22,6 +25,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   TextEditingController descriptionController = TextEditingController();
   TextEditingController searchController = TextEditingController();
   bool repeatTransaction = false;
+  String? repeatFrequency;
+  DateTime? repeatEndDate;
   bool isLoading = true;
   bool isLoadingAccounts = true; // Add specific loading state for accounts
   bool isSaving = false; // Separate loading state for saving
@@ -157,14 +162,14 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Create New Expense Category'),
+          title: const Text('Create New Other Category'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: categoryNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Category Name',
+                  labelText: 'Other Category Name',
                   hintText: 'e.g., Groceries, Travel',
                 ),
               ),
@@ -214,22 +219,35 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
                   if (result.isSuccess && result.results != null) {
                     await _loadCategories();
+                    // Find the newly created category and select it
+                    CategoryModel? newCat;
+                    if (categories.isNotEmpty) {
+                      newCat = categories.firstWhere(
+                        (cat) => cat.name.toLowerCase() == categoryNameController.text.trim().toLowerCase(),
+                        orElse: () => categories.last,
+                      );
+                    } else {
+                      newCat = null;
+                    }
+                    setState(() {
+                      selectedCategory = newCat;
+                    });
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Category created successfully")),
+                        const SnackBar(content: Text("Other category created and selected successfully")),
                       );
                     }
                   } else {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Failed to create category: ${result.message}")),
+                        SnackBar(content: Text("Failed to create other category: "+(result.message??''))),
                       );
                     }
                   }
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Error creating category: $e")),
+                      SnackBar(content: Text("Error creating other category: $e")),
                     );
                   }
                 } finally {
@@ -374,9 +392,8 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Select Category', style: AppStyles.medium(size: 18)),
+                  Text('Select Other Category', style: AppStyles.medium(size: 18)),
                   const SizedBox(height: 16),
-
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.grey[100],
@@ -385,7 +402,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                     child: TextField(
                       controller: searchController,
                       decoration: const InputDecoration(
-                        hintText: 'Search categories',
+                        hintText: 'Search other categories',
                         prefixIcon: Icon(Icons.search),
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -398,12 +415,11 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   Expanded(
                     child: filteredCategories.isEmpty
                         ? Center(
                       child: Text(
-                        'No categories found',
+                        'No other categories found',
                         style: TextStyle(color: Colors.grey[600]),
                       ),
                     )
@@ -418,7 +434,6 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   ElevatedButton(
                     onPressed: _showCreateCategoryDialog,
                     style: ElevatedButton.styleFrom(
@@ -429,7 +444,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                       ),
                     ),
                     child: const Text(
-                      'Create New Category',
+                      'Other Category',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -657,14 +672,29 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     }
   }
 
+  Future<void> _showFrequencyForm() async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => FrequencyFormScreen(),
+        fullscreenDialog: true,
+      ),
+    );
+    if (result is Map<String, dynamic>) {
+      setState(() {
+        repeatFrequency = result['frequency'] as String?;
+        repeatEndDate = result['endDate'] as DateTime?;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
-          // Red header section for expense
+          // Green header section for expense (matching IncomeScreen style)
           Container(
-            color: AppColours.expenseColor,
+            color: const Color(0xFFD32F2F), // Expense red
             child: SafeArea(
               bottom: false,
               child: Column(
@@ -674,20 +704,22 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
                         ),
+                        const Spacer(),
                         const Text(
-                          'Add Expense',
+                          'Expense',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
                             color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
+                        const Spacer(),
+                        // blank to balance
                         const SizedBox(width: 48),
                       ],
                     ),
@@ -695,53 +727,53 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
                   // How much? + amount
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 24)
+                        .copyWith(top: 24, bottom: 40),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
                           'How much?',
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white70,
+                            fontSize: 18,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
                           children: [
                             Text(
                               selectedCurrencySymbol,
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                              style: AppStyles.bold(color: Colors.white, size: 40),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextField(
                                 controller: amountController,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
                                 decoration: const InputDecoration(
-                                  border: InputBorder.none,
                                   hintText: '0',
                                   hintStyle: TextStyle(
-                                    fontSize: 32,
+                                    fontSize: 48,
+                                    color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white70,
                                   ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
                                 ),
+                                style: const TextStyle(
+                                  fontSize: 48,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 32),
                       ],
                     ),
                   ),
@@ -766,69 +798,21 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   GestureDetector(
                     onTap: () => _showCategorySelector(context),
                     child: Container(
-                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.grey[50],
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.grey[200]!,
-                          width: 1,
-                        ),
+                        border: Border.all(color: Colors.grey.shade200),
                       ),
-                      child: Row(
-                        children: [
-                          if (selectedCategory != null)
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppColours.primaryColour,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                _getCategoryIcon(selectedCategory!.icon),
-                                color: Colors.white,
-                              ),
-                            )
-                          else
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[300],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.category,
-                                color: Colors.white,
-                              ),
-                            ),
-                          const SizedBox(width: 16),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Category',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                selectedCategory?.name ?? 'Select Category',
-                                style: TextStyle(
-                                  color: selectedCategory != null ? Colors.black : Colors.grey[400],
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                      child: ListTile(
+                        title: Text(
+                          selectedCategory?.name ?? 'Select Category',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: selectedCategory == null ? Colors.grey.shade400 : Colors.black87,
                           ),
-                          const Spacer(),
-                          Icon(
-                            Icons.chevron_right,
-                            color: Colors.grey[400],
-                          ),
-                        ],
+                        ),
+                        trailing: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade400),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                       ),
                     ),
                   ),
@@ -837,30 +821,20 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   // Description
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey[200]!,
-                        width: 1,
-                      ),
+                      border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: TextField(
                       controller: descriptionController,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
                       decoration: InputDecoration(
-                        labelText: 'Description',
-                        labelStyle: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
+                        hintText: 'Description',
+                        hintStyle: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade400,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                     ),
                   ),
@@ -870,68 +844,40 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   GestureDetector(
                     onTap: () => _showWalletSelector(context),
                     child: Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.grey[200]!,
-                          width: 1,
-                        ),
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          if (selectedAccount != null)
-                            CircleAvatar(
-                              backgroundColor: AppColours.primaryColour.withOpacity(0.1),
-                              child: Icon(
-                                _getAccountTypeIcon(selectedAccount!.accountType.code),
-                                color: AppColours.primaryColour,
-                              ),
-                            )
-                          else
-                            CircleAvatar(
-                              backgroundColor: Colors.grey[300],
-                              child: const Icon(
-                                Icons.account_balance_wallet,
-                                color: Colors.white,
+                          Icon(
+                            selectedAccount == null
+                                ? Icons.account_balance_wallet
+                                : _getAccountTypeIcon(selectedAccount!.accountType.name),
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              selectedAccount == null
+                                  ? 'Select Account Type'
+                                  : '${selectedAccount!.name} (${selectedAccount!.accountType.name})',
+                              style: TextStyle(
+                                color: selectedAccount == null ? Colors.grey.shade500 : Colors.black87,
                               ),
                             ),
-                          const SizedBox(width: 16),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Account',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                selectedAccount?.name ?? 'Select Account',
-                                style: TextStyle(
-                                  color: selectedAccount != null ? Colors.black : Colors.grey[400],
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              if (selectedAccount != null)
-                                Text(
-                                  '${selectedAccount!.currency.symbol} ${selectedAccount!.currentBalanceText}',
-                                  style: TextStyle(
-                                    color: AppColours.primaryColour,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                            ],
                           ),
-                          const Spacer(),
-                          Icon(
-                            Icons.chevron_right,
-                            color: Colors.grey[400],
-                          ),
+                          if (selectedAccount != null)
+                            Text(
+                              '${selectedAccount!.currency.symbol}${selectedAccount!.currentBalance.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                color: Color(0xFFD32F2F),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
                         ],
                       ),
                     ),
@@ -941,27 +887,68 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   // Repeat
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey[200]!,
-                        width: 1,
-                      ),
+                      border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: ListTile(
-                      title: const Text('Repeat this transaction'),
-                      subtitle: const Text('The transaction will be repeated automatically'),
+                      title: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Repeat',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Repeat transaction',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
                       trailing: Switch(
                         value: repeatTransaction,
-                        activeColor: AppColours.primaryColour,
-                        onChanged: (value) {
-                          setState(() {
-                            repeatTransaction = value;
-                          });
+                        onChanged: (v) async {
+                          if (v) {
+                            await _showFrequencyForm();
+                            if (repeatFrequency != null && repeatEndDate != null) {
+                              setState(() {
+                                repeatTransaction = true;
+                              });
+                            } else {
+                              setState(() {
+                                repeatTransaction = false;
+                              });
+                            }
+                          } else {
+                            setState(() {
+                              repeatTransaction = false;
+                              repeatFrequency = null;
+                              repeatEndDate = null;
+                            });
+                          }
                         },
+                        activeColor: const Color(0xFFD32F2F),
+                        inactiveTrackColor: Colors.grey.shade300,
                       ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
                   ),
+                  if (repeatTransaction && repeatFrequency != null && repeatEndDate != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, top: 4, bottom: 8),
+                      child: Text(
+                        'Repeats: $repeatFrequency until '
+                        '${repeatEndDate!.day}/${repeatEndDate!.month}/${repeatEndDate!.year}',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -977,7 +964,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                   child: ElevatedButton(
                     onPressed: isSaving ? null : _saveExpense,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColours.primaryColour,
+                      backgroundColor: const Color(0xFFD32F2F),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                       elevation: 0,
@@ -1014,3 +1001,4 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     );
   }
 }
+

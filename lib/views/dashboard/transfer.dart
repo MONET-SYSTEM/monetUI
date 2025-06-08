@@ -4,10 +4,12 @@ import 'package:intl/intl.dart';
 import 'package:monet/controller/account.dart';
 import 'package:monet/controller/transfer.dart';
 import 'package:monet/models/account.dart';
+import 'package:monet/models/transaction.dart';
 import 'package:monet/utils/helper.dart';
 
 class TransferScreen extends StatefulWidget {
-  const TransferScreen({Key? key}) : super(key: key);
+  const TransferScreen({Key? key, this.transaction}) : super(key: key);
+  final TransactionModel? transaction;
 
   @override
   State<TransferScreen> createState() => _TransferScreenState();
@@ -348,27 +350,6 @@ class _TransferScreenState extends State<TransferScreen> {
 
                           const SizedBox(height: 24),
 
-                          // Attachment option
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50],
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey[200]!, width: 1),
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              leading: const Icon(Icons.attach_file, color: Color(0xFF1976D2)),
-                              title: const Text('Add attachment'),
-                              subtitle: const Text('Receipts, invoices, or other documents'),
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                              onTap: () {
-                                _showAttachmentOptions(context);
-                              },
-                            ),
-                          ),
-
-                          const SizedBox(height: 24),
-
                           // Date picker
                           ListTile(
                             contentPadding: EdgeInsets.zero,
@@ -606,8 +587,5 @@ class _TransferScreenState extends State<TransferScreen> {
         return Icons.account_balance_wallet;
     }
   }
-
-  void _showAttachmentOptions(BuildContext context) {
-    Helper.snackBar(context, message: "Attachment picker not implemented", isSuccess: false);
-  }
 }
+

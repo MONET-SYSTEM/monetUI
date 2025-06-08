@@ -14,6 +14,7 @@ import 'package:monet/views/dashboard/income.dart';
 import 'package:monet/views/dashboard/expense.dart';
 import 'package:monet/views/dashboard/transaction.dart';
 import 'package:monet/views/dashboard/transfer.dart';
+import 'package:monet/views/navigation/bottom_navigation.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -441,180 +442,126 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        backgroundColor: AppColours.primaryColour,
-        title: Text('Profile', style: AppStyles.semibold(color: Colors.white)),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _user == null
-              ? Center(child: Text('No user data'))
-              : Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                      color: Colors.white,
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: AppColours.primaryColour,
-                            child: Text(
-                              _user!.name.isNotEmpty ? _user!.name[0].toUpperCase() : '?',
-                              style: AppStyles.bold(size: 28, color: Colors.white),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        _user!.name,
-                                        style: AppStyles.bold(size: 20),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.visibility, color: Colors.teal),
-                                      tooltip: 'Show Profile',
-                                      onPressed: () {
-                                        Navigator.pushNamed(context, AppRoutes.showProfile);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _user!.email,
-                                  style: AppStyles.medium(color: Colors.grey.shade700),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+    return BottomNavigatorScreen(
+      currentIndex: _currentIndex,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F5F5),
+        appBar: AppBar(
+          backgroundColor: AppColours.primaryColour,
+          title: Text('Profile', style: AppStyles.semibold(color: Colors.white)),
+          centerTitle: true,
+          elevation: 0,
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _user == null
+                ? Center(child: Text('No user data'))
+                : Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                        color: Colors.white,
+                        child: Row(
                           children: [
-                            Text('Account Management', style: AppStyles.semibold()),
-                            const SizedBox(height: 12),
-
-                            // Add Account menu item
-                            _buildMenuItem(
-                              icon: Icons.add_circle,
-                              iconColor: Colors.white,
+                            CircleAvatar(
+                              radius: 32,
                               backgroundColor: AppColours.primaryColour,
-                              title: "Add Account",
-                              onTap: () => Navigator.of(context).pushNamed(AppRoutes.addAccount),
+                              child: Text(
+                                _user!.name.isNotEmpty ? _user!.name[0].toUpperCase() : '?',
+                                style: AppStyles.bold(size: 28, color: Colors.white),
+                              ),
                             ),
-
-                            const SizedBox(height: 12),
-                            // Manage Accounts menu item
-                            _buildMenuItem(
-                              icon: Icons.account_balance_wallet,
-                              iconColor: Colors.white,
-                              backgroundColor: Colors.teal,
-                              title: "Manage Accounts",
-                              onTap: () => _showAccountsBottomSheet(),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _user!.name,
+                                          style: AppStyles.bold(size: 20),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.visibility, color: Colors.teal),
+                                        tooltip: 'Show Profile',
+                                        onPressed: () {
+                                          Navigator.pushNamed(context, AppRoutes.showProfile);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _user!.email,
+                                    style: AppStyles.medium(color: Colors.grey.shade700),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
-
-                            const SizedBox(height: 12),
-                            // Edit Profile menu item
-                            _buildMenuItem(
-                              icon: Icons.person,
-                              iconColor: Colors.white,
-                              backgroundColor: Colors.blue,
-                              title: "Edit Profile",
-                              onTap: () => Navigator.of(context).pushNamed(AppRoutes.editProfile),
-                            ),
-
-                            const SizedBox(height: 12),
-                            // Change Password menu item
-                            _buildMenuItem(
-                              icon: Icons.lock,
-                              iconColor: Colors.white,
-                              backgroundColor: Colors.orange,
-                              title: "Change Password",
-                              onTap: () => Navigator.of(context).pushNamed(AppRoutes.changePassword),
-                            ),
-
-                            const SizedBox(height: 24),
-                            Text('Other', style: AppStyles.semibold()),
-                            const SizedBox(height: 12),
-
-                            // Logout menu item
-                            _buildMenuItem(
-                              icon: Icons.logout,
-                              iconColor: Colors.white,
-                              backgroundColor: Colors.red,
-                              title: "Logout",
-                              onTap: _showLogoutConfirmation,
-                            ),
-
-                            // Add padding at the bottom to avoid content being hidden behind the navigation bar
-                            const SizedBox(height: 24),
                           ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        selectedItemColor: AppColours.primaryColour,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        onTap: _onNavigationTap,
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Transactions',
-          ),
-          // Center add button with special styling
-          BottomNavigationBarItem(
-            icon: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: _isAddMenuOpen ? Colors.purple : AppColours.primaryColour,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                  _isAddMenuOpen ? Icons.close : Icons.add,
-                  color: Colors.white,
-                  size: 30
-              ),
-            ),
-            label: '',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.pie_chart),
-            label: 'Budget',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Account Management', style: AppStyles.semibold()),
+                              const SizedBox(height: 12),
+                              _buildMenuItem(
+                                icon: Icons.add_circle,
+                                iconColor: Colors.white,
+                                backgroundColor: AppColours.primaryColour,
+                                title: "Add Account",
+                                onTap: () => Navigator.of(context).pushNamed(AppRoutes.addAccount),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildMenuItem(
+                                icon: Icons.account_balance_wallet,
+                                iconColor: Colors.white,
+                                backgroundColor: Colors.teal,
+                                title: "Manage Accounts",
+                                onTap: () => _showAccountsBottomSheet(),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildMenuItem(
+                                icon: Icons.person,
+                                iconColor: Colors.white,
+                                backgroundColor: Colors.blue,
+                                title: "Edit Profile",
+                                onTap: () => Navigator.of(context).pushNamed(AppRoutes.editProfile),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildMenuItem(
+                                icon: Icons.lock,
+                                iconColor: Colors.white,
+                                backgroundColor: Colors.orange,
+                                title: "Change Password",
+                                onTap: () => Navigator.of(context).pushNamed(AppRoutes.changePassword),
+                              ),
+                              const SizedBox(height: 24),
+                              Text('Other', style: AppStyles.semibold()),
+                              const SizedBox(height: 12),
+                              _buildMenuItem(
+                                icon: Icons.logout,
+                                iconColor: Colors.white,
+                                backgroundColor: Colors.red,
+                                title: "Logout",
+                                onTap: _showLogoutConfirmation,
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
       ),
     );
   }

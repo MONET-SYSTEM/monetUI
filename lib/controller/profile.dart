@@ -55,7 +55,6 @@ class ProfileController {
     String? gender,
     String? country,
     String? city,
-    String? timezone,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -70,7 +69,6 @@ class ProfileController {
       if (gender != null) data['gender'] = gender;
       if (country != null) data['country'] = country;
       if (city != null) data['city'] = city;
-      if (timezone != null) data['timezone'] = timezone;
 
       final response = await ApiService.put(ApiRoutes.profileUrl, data);
 

@@ -13,6 +13,7 @@ class AppColours {
   static Color incomeColor = const Color(0xff00A86B);
   static Color transferColor = const Color(0xff0077FF);
   static Color homeColor = const Color(0xffFFF6E5);
+
 }
 
 

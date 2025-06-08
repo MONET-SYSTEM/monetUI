@@ -71,6 +71,37 @@ class ApiService {
     return response;
   }
 
+  // pushFormData: for HTTP PUT with FormData
+  static Future<Response> pushFormData(String url, FormData formData) async {
+    final user = await AuthService.get();
+    final response = await dio.put(
+      url,
+      data: formData,
+      options: Options(headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ${user?.token}',
+        // Don't set Content-Type - let Dio handle it for FormData
+      })
+    );
+    return response;
+  }
+
+  // putFormData: for HTTP PUT with FormData
+  static Future<Response> putFormData(String url, FormData formData) async {
+    final user = await AuthService.get();
+    print("PUT FormData request to: $url with token: ${user?.token}"); // Debug print
+    final response = await dio.put(
+      url,
+      data: formData,
+      options: Options(headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ${user?.token}',
+        // Don't set Content-Type - let Dio handle it for FormData
+      })
+    );
+    return response;
+  }
+
   static Future<Response> patch(String url, Map<String, dynamic> data, {Map<String, dynamic>? queryParameters}) async {
     final user = await AuthService.get();
     final response = await dio.patch(
@@ -87,18 +118,15 @@ class ApiService {
     return response;
   }
 
-  static Future<Response> delete(String url, Map<String, dynamic> data) async {
+  static Future<Response> delete(String url) async {
     final user = await AuthService.get();
     final response = await dio.delete(
         url,
-        data: data,
         options: Options(headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer ${user?.token}',
-          'Content-Type': 'application/json',
         })
     );
-
     return response;
   }
 

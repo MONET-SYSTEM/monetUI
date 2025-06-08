@@ -19,6 +19,12 @@ class AuthService {
     final userBox = await Hive.openBox(UserModel.userBox);
     if(userBox.isEmpty) throw Exception("User does not exist");
 
+    // Preserve token if not present in the update map
+    var existingUser = userBox.get(0) as UserModel;
+    if (!user.containsKey('token') || user['token'] == null || user['token'].toString().isEmpty) {
+      user['token'] = existingUser.token;
+    }
+
     // Use fromJson to update all fields
     var userModel = UserModel.fromJson(user);
     await userBox.put(0, userModel);
@@ -49,5 +55,12 @@ class AuthService {
   static Future delete() async {
     final userBox = await Hive.openBox(UserModel.userBox);
     await userBox.clear();
+  }
+
+  static Future<bool> hasPin() async {
+    final userBox = await Hive.openBox(UserModel.userBox);
+    if (userBox.isEmpty) return false;
+    var userModel = userBox.get(0);
+    return userModel.pin != null && userModel.pin.isNotEmpty;
   }
 }

@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:monet/controller/account.dart';
 import 'package:monet/models/account.dart';
+import 'package:monet/models/transaction.dart';
 import 'package:monet/resources/app_colours.dart';
 import 'package:monet/resources/app_styles.dart';
 import 'package:monet/resources/app_spacing.dart';
 import 'package:monet/models/category.dart';
 import 'package:monet/controller/category.dart';
+import 'package:monet/views/dashboard/frequency.dart';
 import '../../controller/transaction.dart';
 
 class IncomeScreen extends StatefulWidget {
-  const IncomeScreen({Key? key}) : super(key: key);
+  const IncomeScreen({Key? key, this.transaction}) : super(key: key);
+  final TransactionModel? transaction;
+
 
   @override
   State<IncomeScreen> createState() => _IncomeScreenState();
+
 }
 
 class _IncomeScreenState extends State<IncomeScreen> {
@@ -21,6 +26,8 @@ class _IncomeScreenState extends State<IncomeScreen> {
   TextEditingController descriptionController = TextEditingController();
   TextEditingController searchController = TextEditingController();
   bool repeatTransaction = false;
+  String? repeatFrequency;
+  DateTime? repeatEndDate;
   bool isLoading = true;
   List<CategoryModel> categories = [];
   List<CategoryModel> filteredCategories = [];
@@ -469,6 +476,21 @@ class _IncomeScreenState extends State<IncomeScreen> {
     );
   }
 
+  Future<void> _showFrequencyForm() async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => FrequencyFormScreen(),
+        fullscreenDialog: true,
+      ),
+    );
+    if (result is Map<String, dynamic>) {
+      setState(() {
+        repeatFrequency = result['frequency'] as String?;
+        repeatEndDate = result['endDate'] as DateTime?;
+      });
+    }
+  }
+
   void _saveIncome() async {
     // Prevent multiple simultaneous saves
     if (isLoading) return;
@@ -620,6 +642,8 @@ class _IncomeScreenState extends State<IncomeScreen> {
     setState(() {
       selectedCategory = null;
       repeatTransaction = false;
+      repeatFrequency = null;
+      repeatEndDate = null;
       // Keep selectedAccount as is, user probably wants to use the same account
     });
   }
@@ -821,28 +845,6 @@ class _IncomeScreenState extends State<IncomeScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Attachment
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: ListTile(
-                      leading: Icon(Icons.attach_file_outlined, color: Colors.grey.shade500),
-                      title: Text(
-                        'Add attachment',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                      onTap: () {/* pick file */},
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
                   // Repeat
                   Container(
                     decoration: BoxDecoration(
@@ -873,13 +875,42 @@ class _IncomeScreenState extends State<IncomeScreen> {
                       ),
                       trailing: Switch(
                         value: repeatTransaction,
-                        onChanged: (v) => setState(() => repeatTransaction = v),
-                        activeColor: AppColours.primaryColour,
+                        onChanged: (v) async {
+                          if (v) {
+                            await _showFrequencyForm();
+                            if (repeatFrequency != null && repeatEndDate != null) {
+                              setState(() {
+                                repeatTransaction = true;
+                              });
+                            } else {
+                              setState(() {
+                                repeatTransaction = false;
+                              });
+                            }
+                          } else {
+                            setState(() {
+                              repeatTransaction = false;
+                              repeatFrequency = null;
+                              repeatEndDate = null;
+                            });
+                          }
+                        },
+                        activeColor: const Color(0xFF00A86B),
                         inactiveTrackColor: Colors.grey.shade300,
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
                   ),
+                  if (repeatTransaction && repeatFrequency != null && repeatEndDate != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, top: 4, bottom: 8),
+                      child: Text(
+                        'Repeats: '
+                        ' a0$repeatFrequency until '
+                        '${repeatEndDate!.day}/${repeatEndDate!.month}/${repeatEndDate!.year}',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ),
                 ],
               ),
             ),

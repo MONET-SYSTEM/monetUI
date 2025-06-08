@@ -115,7 +115,7 @@ class AccountController {
   static Future<Result<bool>> delete(String accountId) async {
     try {
       // Fix: Include accountId in the URL path
-      final response = await ApiService.delete('${ApiRoutes.accountUrl}/$accountId', {});
+      final response = await ApiService.delete('${ApiRoutes.accountUrl}/$accountId');
 
       // Check if the deletion was successful
       final bool isSuccess = response.data['success'] ?? false;
