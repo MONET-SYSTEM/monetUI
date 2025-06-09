@@ -1,175 +1,57 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+// lib/services/budget_service.dart
+
+import 'package:hive/hive.dart';
 import 'package:monet/models/budget.dart';
-import 'package:monet/models/result.dart';
-import 'package:monet/services/api.dart';
-import 'package:monet/services/api_routes.dart';
 
 class BudgetService {
-  static Future<Result<List<BudgetModel>>> loadBudgets() async {
-    try {
-      // Assuming ApiService.get expects endpoint and headers
-      final response = await ApiService.get(ApiRoutes.budgetUrl, {});
+  static const _boxName = BudgetModel.boxName;
+  static Box<BudgetModel>? _box;
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> decodedData = jsonDecode(response.data);
-        if (decodedData['status'] == 'success' && decodedData['data'] != null) {
-          List<dynamic> budgetsData = decodedData['data'];
-          List<BudgetModel> budgets = budgetsData
-              .map((json) => BudgetModel.fromJson(json))
-              .toList();
-          return Result<List<BudgetModel>>(
-              isSuccess: true,
-              results: budgets,
-              message: 'Budgets loaded successfully'
-          );
-        }
-        return Result<List<BudgetModel>>(
-            isSuccess: false,
-            message: decodedData['message'] ?? 'Failed to load budgets'
-        );
-      }
-      return Result<List<BudgetModel>>(
-          isSuccess: false,
-          message: 'Failed to load budgets. Status code: ${response.statusCode}'
-      );
-    } catch (e) {
-      return Result<List<BudgetModel>>(
-          isSuccess: false,
-          message: 'Error: ${e.toString()}'
-      );
+  static Future<Box<BudgetModel>> _openBox() async {
+    if (_box == null || !_box!.isOpen) {
+      _box = await Hive.openBox<BudgetModel>(_boxName);
     }
+    return _box!;
   }
 
-  static Future<Result<BudgetModel>> getBudget(String id) async {
-    try {
-      final response = await ApiService.get('${ApiRoutes.budgetUrl}/$id', {});
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> decodedData = jsonDecode(response.data);
-        if (decodedData['status'] == 'success' && decodedData['data'] != null) {
-          BudgetModel budget = BudgetModel.fromJson(decodedData['data']);
-          return Result<BudgetModel>(
-              isSuccess: true,
-              results: budget,
-              message: 'Budget retrieved successfully'
-          );
-        }
-        return Result<BudgetModel>(
-            isSuccess: false,
-            message: decodedData['message'] ?? 'Budget not found'
-        );
-      }
-      return Result<BudgetModel>(
-          isSuccess: false,
-          message: 'Failed to get budget. Status code: ${response.statusCode}'
-      );
-    } catch (e) {
-      return Result<BudgetModel>(
-          isSuccess: false,
-          message: 'Error: ${e.toString()}'
-      );
-    }
+  static Future<BudgetModel> save(BudgetModel budget) async {
+    final box = await _openBox();
+    await box.put(budget.id, budget);
+    return budget;
   }
 
-  static Future<Result<BudgetModel>> createBudget(BudgetModel budget) async {
-    try {
-      final response = await ApiService.post(ApiRoutes.budgetUrl, budget.toJson());
-
-      if (response.statusCode == 201) {
-        final Map<String, dynamic> decodedData = jsonDecode(response.data);
-        if (decodedData['status'] == 'success' && decodedData['data'] != null) {
-          BudgetModel createdBudget = BudgetModel.fromJson(decodedData['data']);
-          return Result<BudgetModel>(
-              isSuccess: true,
-              results: createdBudget,
-              message: 'Budget created successfully'
-          );
-        }
-        return Result<BudgetModel>(
-            isSuccess: false,
-            message: decodedData['message'] ?? 'Failed to create budget'
-        );
+  static Future<List<BudgetModel>> saveAll(List<BudgetModel> budgets) async {
+    final box = await _openBox();
+    await box.clear();
+    for (var b in budgets) {
+      if (b.id.isNotEmpty) {
+        await box.put(b.id, b);
       }
-
-      // Try to parse error messages
-      try {
-        final Map<String, dynamic> errorData = jsonDecode(response.data);
-        return Result<BudgetModel>(
-            isSuccess: false,
-            message: errorData['message'] ?? 'Failed to create budget'
-        );
-      } catch (_) {
-        return Result<BudgetModel>(
-            isSuccess: false,
-            message: 'Failed to create budget. Status code: ${response.statusCode}'
-        );
-      }
-    } catch (e) {
-      return Result<BudgetModel>(
-          isSuccess: false,
-          message: 'Error: ${e.toString()}'
-      );
     }
+    return budgets;
   }
 
-  static Future<Result<BudgetModel>> updateBudget(BudgetModel budget) async {
-    try {
-      final response = await ApiService.put('${ApiRoutes.budgetUrl}/${budget.id}', budget.toJson());
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> decodedData = jsonDecode(response.data);
-        if (decodedData['status'] == 'success' && decodedData['data'] != null) {
-          BudgetModel updatedBudget = BudgetModel.fromJson(decodedData['data']);
-          return Result<BudgetModel>(
-              isSuccess: true,
-              results: updatedBudget,
-              message: 'Budget updated successfully'
-          );
-        }
-        return Result<BudgetModel>(
-            isSuccess: false,
-            message: decodedData['message'] ?? 'Failed to update budget'
-        );
-      }
-      return Result<BudgetModel>(
-          isSuccess: false,
-          message: 'Failed to update budget. Status code: ${response.statusCode}'
-      );
-    } catch (e) {
-      return Result<BudgetModel>(
-          isSuccess: false,
-          message: 'Error: ${e.toString()}'
-      );
-    }
+  static Future<List<BudgetModel>> getAll() async {
+    final box = await _openBox();
+    return box.values.toList();
   }
 
-  static Future<Result> deleteBudget(String id) async {
-    try {
-      final response = await ApiService.delete('${ApiRoutes.budgetUrl}/$id');
+  static Future<BudgetModel?> getById(String id) async {
+    final box = await _openBox();
+    return box.get(id);
+  }
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> decodedData = jsonDecode(response.data);
-        if (decodedData['status'] == 'success') {
-          return Result(
-              isSuccess: true,
-              message: decodedData['message'] ?? 'Budget deleted successfully'
-          );
-        }
-        return Result(
-            isSuccess: false,
-            message: decodedData['message'] ?? 'Failed to delete budget'
-        );
-      }
-      return Result(
-          isSuccess: false,
-          message: 'Failed to delete budget. Status code: ${response.statusCode}'
-      );
-    } catch (e) {
-      return Result(
-          isSuccess: false,
-          message: 'Error: ${e.toString()}'
-      );
+  static Future<bool> delete(String id) async {
+    final box = await _openBox();
+    if (box.containsKey(id)) {
+      await box.delete(id);
+      return true;
     }
+    return false;
+  }
+
+  static Future<void> deleteAll() async {
+    final box = await _openBox();
+    await box.clear();
   }
 }

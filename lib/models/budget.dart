@@ -1,124 +1,190 @@
+// lib/models/budget.dart
+
 import 'package:hive/hive.dart';
 
 part 'budget.g.dart';
 
-@HiveType(typeId: 16) // Adjust typeId based on your existing models
+@HiveType(typeId: 8)
 class BudgetModel extends HiveObject {
   @HiveField(0)
-  String id = '';
+  final String id;
 
   @HiveField(1)
-  String name = '';
+  final String userId;
 
   @HiveField(2)
-  String? description;
+  final String? categoryId;
 
   @HiveField(3)
-  double amount = 0.0;
+  final String name;
 
   @HiveField(4)
-  String? categoryId;
+  final String? description;
 
   @HiveField(5)
-  String period = 'monthly'; // daily, weekly, monthly, quarterly, yearly
+  final double amount;
 
   @HiveField(6)
-  String startDate = '';
+  final String amountText;
 
   @HiveField(7)
-  String endDate = '';
+  final double spentAmount;
 
   @HiveField(8)
-  bool sendNotifications = false;
+  final String spentAmountText;
 
   @HiveField(9)
-  int notificationThreshold = 80;
+  final String period;
 
   @HiveField(10)
-  String color = '#90CAF9';
+  final DateTime startDate;
 
   @HiveField(11)
-  String status = 'active'; // active, inactive, completed, exceeded
+  final DateTime endDate;
 
   @HiveField(12)
-  double spent = 0.0;
+  final String status;
 
   @HiveField(13)
-  double remaining = 0.0;
+  final bool sendNotifications;
 
   @HiveField(14)
-  dynamic category;
+  final int notificationThreshold;
 
-  // Convert from JSON
-  static BudgetModel fromJson(Map<String, dynamic> json) {
-    BudgetModel budget = BudgetModel();
-    budget.id = json['id'] ?? json['uuid'] ?? '';
-    budget.name = json['name'] ?? '';
-    budget.description = json['description'];
-    budget.amount = double.tryParse(json['amount']?.toString() ?? '0') ?? 0.0;
-    budget.categoryId = json['category_id']?.toString();
-    budget.period = json['period'] ?? 'monthly';
-    budget.startDate = json['start_date'] ?? '';
-    budget.endDate = json['end_date'] ?? '';
-    budget.sendNotifications = json['send_notifications'] == true || json['send_notifications'] == 1;
-    budget.notificationThreshold = json['notification_threshold'] ?? 80;
-    budget.color = json['color'] ?? '#90CAF9';
-    budget.status = json['status'] ?? 'active';
-    budget.spent = double.tryParse(json['spent']?.toString() ?? '0') ?? 0.0;
-    budget.remaining = budget.amount - budget.spent;
-    budget.category = json['category'];
+  @HiveField(15)
+  final String color;
 
-    return budget;
+  static const String boxName = 'budgets';
+
+  BudgetModel({
+    required this.id,
+    required this.userId,
+    this.categoryId,
+    required this.name,
+    this.description,
+    this.amount = 0.0,
+    String? amountText,
+    this.spentAmount = 0.0,
+    String? spentAmountText,
+    required this.period,
+    DateTime? startDate,
+    DateTime? endDate,
+    this.status = '',
+    this.sendNotifications = false,
+    this.notificationThreshold = 0,
+    this.color = '#007bff',
+  })  : amountText = amountText ?? amount.toStringAsFixed(2),
+        spentAmountText = spentAmountText ?? spentAmount.toStringAsFixed(2),
+        startDate = startDate ?? DateTime.now(),
+        endDate = endDate ?? DateTime.now();
+
+  factory BudgetModel.fromMap(Map<String, dynamic> json) {
+    // nested category support
+    String? catId = json['category_id']?.toString();
+    if (catId == null && json['category'] is Map) {
+      catId = json['category']['id']?.toString();
+    }
+
+    final rawNotif = json['send_notifications'];
+    final rawThreshold = json['notification_threshold'];
+
+    return BudgetModel(
+      id: json['id']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
+      categoryId: catId,
+      name: json['name']?.toString() ?? '',
+      description: json['description']?.toString(),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      amountText: json['amount_text']?.toString(),
+      spentAmount: (json['spent_amount'] as num?)?.toDouble() ?? 0.0,
+      spentAmountText: json['spent_amount_text']?.toString(),
+      period: json['period']?.toString() ?? '',
+      startDate: json['start_date'] != null
+          ? DateTime.parse(json['start_date'])
+          : DateTime.now(),
+      endDate: json['end_date'] != null
+          ? DateTime.parse(json['end_date'])
+          : DateTime.now(),
+      status: json['status']?.toString() ?? '',
+      sendNotifications: rawNotif is bool
+          ? rawNotif
+          : rawNotif == 1 || rawNotif == '1',
+      notificationThreshold: rawThreshold is int
+          ? rawThreshold
+          : int.tryParse(rawThreshold?.toString() ?? '') ?? 0,
+      color: json['color']?.toString() ?? '#007bff',
+    );
   }
 
-  // Convert to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'description': description,
-      'amount': amount,
-      'category_id': categoryId,
-      'period': period,
-      'start_date': startDate,
-      'end_date': endDate,
-      'send_notifications': sendNotifications,
-      'notification_threshold': notificationThreshold,
-      'color': color,
-      'status': status,
-    };
-  }
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'user_id': userId,
+    'category_id': categoryId,
+    'name': name,
+    'description': description,
+    'amount': amount,
+    'amount_text': amountText,
+    'spent_amount': spentAmount,
+    'spent_amount_text': spentAmountText,
+    'period': period,
+    'start_date': startDate.toIso8601String(),
+    'end_date': endDate.toIso8601String(),
+    'status': status,
+    'send_notifications': sendNotifications,
+    'notification_threshold': notificationThreshold,
+    'color': color,
+  };
 
-  // Create a copy with modified fields
+  double get progress =>
+      amount > 0.0 ? (spentAmount / amount).clamp(0.0, 1.0) : 0.0;
+
   BudgetModel copyWith({
+    String? id,
+    String? userId,
+    String? categoryId,
     String? name,
     String? description,
     double? amount,
-    String? categoryId,
+    String? amountText,
+    double? spentAmount,
+    String? spentAmountText,
     String? period,
-    String? startDate,
-    String? endDate,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? status,
     bool? sendNotifications,
     int? notificationThreshold,
     String? color,
-    String? status,
   }) {
-    BudgetModel newBudget = BudgetModel();
-    newBudget.id = this.id;
-    newBudget.name = name ?? this.name;
-    newBudget.description = description ?? this.description;
-    newBudget.amount = amount ?? this.amount;
-    newBudget.categoryId = categoryId ?? this.categoryId;
-    newBudget.period = period ?? this.period;
-    newBudget.startDate = startDate ?? this.startDate;
-    newBudget.endDate = endDate ?? this.endDate;
-    newBudget.sendNotifications = sendNotifications ?? this.sendNotifications;
-    newBudget.notificationThreshold = notificationThreshold ?? this.notificationThreshold;
-    newBudget.color = color ?? this.color;
-    newBudget.status = status ?? this.status;
-    newBudget.spent = this.spent;
-    newBudget.remaining = amount != null ? amount - this.spent : this.remaining;
-    newBudget.category = this.category;
-
-    return newBudget;
+    return BudgetModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      categoryId: categoryId ?? this.categoryId,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      amount: amount ?? this.amount,
+      amountText: amountText ?? this.amountText,
+      spentAmount: spentAmount ?? this.spentAmount,
+      spentAmountText: spentAmountText ?? this.spentAmountText,
+      period: period ?? this.period,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      status: status ?? this.status,
+      sendNotifications: sendNotifications ?? this.sendNotifications,
+      notificationThreshold:
+      notificationThreshold ?? this.notificationThreshold,
+      color: color ?? this.color,
+    );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is BudgetModel && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() => 'Budget($name: $progress)';
 }

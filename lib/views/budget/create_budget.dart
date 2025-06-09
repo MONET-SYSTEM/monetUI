@@ -1,316 +1,356 @@
+// lib/views/budget/create_budget.dart
+
 import 'package:flutter/material.dart';
+import 'package:monet/controller/budget.dart';
+import 'package:monet/controller/category.dart';
+import 'package:monet/models/budget.dart';
+import 'package:monet/models/category.dart';
+import 'package:monet/models/result.dart';
+import 'package:monet/resources/app_colours.dart';
+import 'package:monet/views/navigation/bottom_navigation.dart';
 
 class CreateBudgetScreen extends StatefulWidget {
-  const CreateBudgetScreen({Key? key}) : super(key: key);
+  final BudgetModel? initialBudget;
+
+  const CreateBudgetScreen({Key? key, this.initialBudget}) : super(key: key);
 
   @override
   State<CreateBudgetScreen> createState() => _CreateBudgetScreenState();
 }
 
 class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
-  final TextEditingController _budgetController = TextEditingController();
-  String selectedCategory = 'Shopping';
-  bool receiveAlert = true;
-  double progressValue = 0.3; // 30% as shown in the design
+  final TextEditingController _amountCtrl = TextEditingController();
+  final TextEditingController _descriptionCtrl = TextEditingController();
 
-  final List<String> categories = [
-    'Shopping',
-    'Food & Dining',
-    'Transportation',
-    'Entertainment',
-    'Healthcare',
-    'Education',
-    'Bills & Utilities',
-  ];
+  List<CategoryModel> _categories = [];
+  String? _selectedCategoryId;
+
+  String _selectedPeriod = 'monthly';
+  DateTime? _startDate;
+  DateTime? _endDate;
+  bool _sendNotifications = true;
+  int _notificationThreshold = 80;
+
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  final _periodOptions = ['daily','weekly','monthly','quarterly','yearly'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+
+    // If we're editing, prefill the fields:
+    final b = widget.initialBudget;
+    if (b != null) {
+      _amountCtrl.text = b.amount.toStringAsFixed(2);
+      _descriptionCtrl.text = b.description ?? '';
+      _selectedPeriod = b.period;
+      _startDate = b.startDate;
+      _endDate = b.endDate;
+      _sendNotifications = b.sendNotifications;
+      _notificationThreshold = b.notificationThreshold;
+      _selectedCategoryId = b.categoryId;
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final res = await CategoryController.load();
+      if (res.isSuccess && res.results != null) {
+        final expenses = res.results!.where((c) => c.type == 'expense').toList();
+        setState(() {
+          _categories = expenses;
+          // if no initial and categories exist, select first
+          if (_selectedCategoryId == null && expenses.isNotEmpty) {
+            _selectedCategoryId = expenses.first.id;
+          }
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = res.message;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _pickDate({ required bool isStart }) async {
+    final initial = isStart
+        ? (_startDate ?? DateTime.now())
+        : (_endDate ?? (_startDate ?? DateTime.now()));
+    final first = isStart ? DateTime(2000) : (_startDate ?? DateTime(2000));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: first,
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isStart) {
+        _startDate = picked;
+        if (_endDate != null && _endDate!.isBefore(picked)) {
+          _endDate = picked;
+        }
+      } else {
+        _endDate = picked;
+      }
+    });
+  }
+
+  Future<void> _submit() async {
+    final amtText = _amountCtrl.text.trim();
+    if (amtText.isEmpty) {
+      setState(() => _errorMessage = 'Please enter an amount.');
+      return;
+    }
+    final amount = double.tryParse(amtText);
+    if (amount == null) {
+      setState(() => _errorMessage = 'Invalid amount format.');
+      return;
+    }
+    if (_startDate == null || _endDate == null) {
+      setState(() => _errorMessage = 'Please pick both start and end dates.');
+      return;
+    }
+    if (_selectedCategoryId == null) {
+      setState(() => _errorMessage = 'Please select a category.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final name = widget.initialBudget?.name ??
+        (_descriptionCtrl.text.trim().isNotEmpty
+            ? _descriptionCtrl.text.trim()
+            : 'Budget');
+    final description = _descriptionCtrl.text.trim().isNotEmpty
+        ? _descriptionCtrl.text.trim()
+        : null;
+
+    Result result;
+    if (widget.initialBudget == null) {
+      // creating
+      result = await BudgetController.createBudget(
+        name: name,
+        amount: amount,
+        period: _selectedPeriod,
+        startDate: _startDate!,
+        endDate: _endDate!,
+        categoryId: _selectedCategoryId,
+        description: description,
+        sendNotifications: _sendNotifications,
+        notificationThreshold: _notificationThreshold,
+      );
+    } else {
+      // updating
+      result = await BudgetController.updateBudget(
+        budgetId: widget.initialBudget!.id,
+        name: name,
+        amount: amount,
+        period: _selectedPeriod,
+        startDate: _startDate,
+        endDate: _endDate,
+        categoryId: _selectedCategoryId,
+        description: description,
+        sendNotifications: _sendNotifications,
+        notificationThreshold: _notificationThreshold,
+      );
+    }
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.isSuccess) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() => _errorMessage = result.message ?? 'Failed to save budget.');
+    }
+  }
 
   @override
   void dispose() {
-    _budgetController.dispose();
+    _amountCtrl.dispose();
+    _descriptionCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF2196F3), // Blue
-              Color(0xFF1976D2), // Darker blue
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // App Bar
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const Expanded(
-                      child: Text(
-                        'Create Budget',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(width: 40), // Balance the back button
-                  ],
+    final isEdit = widget.initialBudget != null;
+    return BottomNavigatorScreen(
+      currentIndex: 3,
+      onRefresh: () {},
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        body: Stack(
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [ Color(0xFF2196F3), Color(0xFF1976D2) ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
               ),
-
-              // Content
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 40),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(32),
-                      topRight: Radius.circular(32),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
                       children: [
-                        // Question text
-                        const Text(
-                          'How much do you want to spend?',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF1A1A1A),
+                        BackButton(color: Colors.white),
+                        Expanded(
+                          child: Text(
+                            isEdit ? 'Edit Budget' : 'Create Budget',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
-
-                        const SizedBox(height: 24),
-
-                        // Budget input
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[50],
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey[200]!),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    '₱',
-                                    style: TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF2196F3),
-                                    ),
-                                  ),
-                                  Flexible(
-                                    child: TextField(
-                                      controller: _budgetController,
-                                      keyboardType: TextInputType.number,
-                                      textAlign: TextAlign.left,
-                                      style: const TextStyle(
-                                        fontSize: 48,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF1A1A1A),
-                                      ),
-                                      decoration: const InputDecoration(
-                                        hintText: '0',
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.zero,
-                                        isDense: true,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // Category selection
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[300]!),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: DropdownButtonFormField<String>(
-                            value: selectedCategory,
-                            decoration: const InputDecoration(
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                              border: InputBorder.none,
-                            ),
-                            items: categories.map((String category) {
-                              return DropdownMenuItem<String>(
-                                value: category,
-                                child: Text(
-                                  category,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Color(0xFF1A1A1A),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              if (newValue != null) {
-                                setState(() {
-                                  selectedCategory = newValue;
-                                });
-                              }
-                            },
-                            icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Receive Alert section
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Receive Alert',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF1A1A1A),
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Receive alert when it reaches\nsome point',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Switch(
-                              value: receiveAlert,
-                              onChanged: (bool value) {
-                                setState(() {
-                                  receiveAlert = value;
-                                });
-                              },
-                              activeColor: const Color(0xFF2196F3),
-                              activeTrackColor: const Color(0xFF2196F3),
-                              inactiveThumbColor: Colors.grey,
-                              inactiveTrackColor: Colors.grey[300],
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // Progress indicator
-                        Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '${(progressValue * 100).toInt()}%',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF2196F3),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                trackHeight: 6,
-                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
-                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-                                activeTrackColor: const Color(0xFF2196F3),
-                                inactiveTrackColor: Colors.grey[300],
-                                thumbColor: const Color(0xFF2196F3),
-                              ),
-                              child: Slider(
-                                value: progressValue,
-                                onChanged: (double value) {
-                                  setState(() {
-                                    progressValue = value;
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const Spacer(),
-
-                        // Continue button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              // Handle continue action
-                              print('Budget: ${_budgetController.text}');
-                              print('Category: $selectedCategory');
-                              print('Receive Alert: $receiveAlert');
-                              print('Alert Percentage: ${(progressValue * 100).toInt()}%');
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2196F3),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: const Text(
-                              'Continue',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
+                        const SizedBox(width: 48),
                       ],
                     ),
                   ),
-                ),
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 24),
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                      ),
+                      child: _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : _buildForm(),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            if (_isLoading) ModalBarrier(dismissible: false, color: Colors.black26),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildForm() {
+    return SingleChildScrollView(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (_errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+          ),
+        const Text('Amount', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _amountCtrl,
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            prefixText: '₱ ',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text('Description (optional)', style: TextStyle(fontSize: 16)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _descriptionCtrl,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Groceries, Rent, ...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text('Category', style: TextStyle(fontSize: 16)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedCategoryId,
+          items: _categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+          onChanged: (v) => setState(() => _selectedCategoryId = v),
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        const SizedBox(height: 16),
+        const Text('Period', style: TextStyle(fontSize: 16)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedPeriod,
+          items: _periodOptions.map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase()))).toList(),
+          onChanged: (v) => setState(() => _selectedPeriod = v!),
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: OutlinedButton(onPressed: () => _pickDate(isStart: true), child: Text(
+            _startDate == null
+                ? 'Pick start date'
+                : 'Start: ${_startDate!.toLocal().toIso8601String().split('T')[0]}',
+          ))),
+          const SizedBox(width: 12),
+          Expanded(child: OutlinedButton(onPressed: () => _pickDate(isStart: false), child: Text(
+            _endDate == null
+                ? 'Pick end date'
+                : 'End: ${_endDate!.toLocal().toIso8601String().split('T')[0]}',
+          ))),
+        ]),
+        const SizedBox(height: 16),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('Receive Alert', style: TextStyle(fontSize: 16)),
+          Switch(
+            value: _sendNotifications,
+            onChanged: (v) => setState(() => _sendNotifications = v),
+            activeColor: AppColours.primaryColour,
+          ),
+        ]),
+        if (_sendNotifications) ...[
+          Text('Notify at $_notificationThreshold%'),
+          Slider(
+            value: _notificationThreshold.toDouble(),
+            min: 1,
+            max: 100,
+            divisions: 99,
+            label: '$_notificationThreshold%',
+            onChanged: (v) => setState(() => _notificationThreshold = v.toInt()),
+          ),
+        ],
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            onPressed: _submit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColours.primaryColour,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            child: Text(widget.initialBudget == null ? 'Continue' : 'Save Changes'),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ]),
     );
   }
 }

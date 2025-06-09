@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:monet/controller/budget.dart';
+import 'package:monet/models/budget.dart';
 import 'package:monet/resources/app_colours.dart';
-import 'package:monet/resources/app_styles.dart';
-import 'package:monet/views/dashboard/home.dart';
-import 'package:monet/views/dashboard/expense.dart';
-import 'package:monet/views/dashboard/income.dart';
-import 'package:monet/views/dashboard/profile.dart';
-import 'package:monet/views/dashboard/transaction.dart';
-import 'package:monet/views/dashboard/transfer.dart';
+import 'package:monet/services/budget_service.dart';
+import 'package:monet/views/budget/create_budget.dart';
+import 'package:monet/views/budget/show_budget.dart';
+import 'package:monet/views/navigation/bottom_navigation.dart';
+import 'package:intl/intl.dart';
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({Key? key}) : super(key: key);
@@ -16,506 +16,258 @@ class BudgetScreen extends StatefulWidget {
 }
 
 class _BudgetScreenState extends State<BudgetScreen> {
-  int _currentIndex = 3; // Budget tab index
-  bool _isAddMenuOpen = false;
-  DateTime _selectedMonth = DateTime.now();
+  List<BudgetModel> _budgets = [];
+  bool _isLoading = false;
+  DateTime _currentMonth = DateTime.now();
+  String? _errorMessage;
 
-  // Sample budget data - replace with your actual data model
-  List<Map<String, dynamic>> budgets = [];
+  @override
+  void initState() {
+    super.initState();
+    _fetchBudgets();
+  }
+
+  Future<void> _fetchBudgets() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    // load local
+    try {
+      final local = await BudgetService.getAll();
+      if (local.isNotEmpty) {
+        setState(() => _budgets = local);
+      }
+    } catch (_) {}
+
+    // then remote
+    final result = await BudgetController.fetchBudgets();
+    if (result.isSuccess && result.results != null) {
+      setState(() => _budgets = result.results!);
+    } else if (_budgets.isEmpty) {
+      setState(() => _errorMessage = result.message);
+    }
+
+    setState(() => _isLoading = false);
+  }
+
+  void _prevMonth() {
+    setState(() {
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
+    });
+  }
+
+  void _nextMonth() {
+    setState(() {
+      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
+    });
+  }
+
+  List<BudgetModel> get _filteredBudgets {
+    // if you track budgets by month, filter here.
+    // For now just show all.
+    return _budgets;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              // Header with month navigation
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColours.primaryColour, Color(0xFF7C3AED)],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _selectedMonth = DateTime(
-                                _selectedMonth.year,
-                                _selectedMonth.month - 1,
-                              );
-                            });
-                          },
-                          icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
-                        ),
-                        Text(
-                          _getMonthName(_selectedMonth),
-                          style: AppStyles.bold(size: 20, color: Colors.white),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _selectedMonth = DateTime(
-                                _selectedMonth.year,
-                                _selectedMonth.month + 1,
-                              );
-                            });
-                          },
-                          icon: const Icon(Icons.chevron_right, color: Colors.white, size: 28),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Main content
-              Expanded(
-                child: budgets.isEmpty ? _buildEmptyState() : _buildBudgetList(),
-              ),
-            ],
+    final monthLabel = DateFormat.MMMM().format(_currentMonth);
+
+    return BottomNavigatorScreen(
+      currentIndex: 3,
+      onRefresh: _fetchBudgets,
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          backgroundColor: AppColours.primaryColour,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+            onPressed: _prevMonth,
           ),
-
-          // Add menu overlay (same as HomeScreen)
-          if (_isAddMenuOpen)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: _toggleAddMenu, // Close menu when tapping outside
-                child: Container(
-                  color: Colors.black54, // Semi-transparent overlay
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Income button
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: ElevatedButton.icon(
-                            onPressed: _showAddIncomeScreen,
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColours.incomeColor,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.arrow_downward, color: Colors.white),
-                            ),
-                            label: const Text('Income'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              textStyle: AppStyles.medium(size: 16),
-                            ),
-                          ),
-                        ),
-
-                        // Transfer button
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: ElevatedButton.icon(
-                            onPressed: _showTransferScreen,
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColours.primaryColour,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.swap_horiz, color: Colors.white),
-                            ),
-                            label: const Text('Transfer'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              textStyle: AppStyles.medium(size: 16),
-                            ),
-                          ),
-                        ),
-
-                        // Expense button
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: ElevatedButton.icon(
-                            onPressed: _showAddExpenseScreen,
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColours.expenseColor,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.arrow_upward, color: Colors.white),
-                            ),
-                            label: const Text('Expense'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              textStyle: AppStyles.medium(size: 16),
-                            ),
-                          ),
-                        ),
-
-                        // Close button
-                        Padding(
-                          padding: const EdgeInsets.only(top: 24),
-                          child: FloatingActionButton(
-                            onPressed: _toggleAddMenu,
-                            backgroundColor: Colors.purple,
-                            child: const Icon(Icons.close, color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+          title: Text(
+            monthLabel,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.arrow_forward_ios, color: Colors.white),
+              onPressed: _nextMonth,
+            ),
+          ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: _fetchBudgets,
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage != null && _filteredBudgets.isEmpty
+              ? Center(child: Text(_errorMessage!))
+              : _filteredBudgets.isEmpty
+              ? _buildEmptyState()
+              : _buildListView(),
+        ),
+        bottomNavigationBar: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _onCreate,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColours.primaryColour,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
+              ),
+              child: const Text(
+                'Create a budget',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
-        ],
-      ),
-      // Bottom navigation bar - matching HomeScreen
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: AppColours.primaryColour,
-        unselectedItemColor: Colors.grey,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          // If it's the add button (middle item)
-          if (index == 2) {
-            _toggleAddMenu();
-            return;
-          }
-
-          if (index == 0) {
-            _navigateToHome();
-            return;
-          }
-
-          if (index == 1) {
-            _navigateToTransaction();
-            return;
-          }
-
-          // If it's the profile tab
-          if (index == 4) {
-            _navigateToProfile();
-            return;
-          }
-
-          setState(() {
-            _currentIndex = index;
-            // Close add menu if it's open
-            if (_isAddMenuOpen) {
-              _isAddMenuOpen = false;
-            }
-          });
-        },
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Transaction',
-          ),
-          // Center add button - special styling
-          BottomNavigationBarItem(
-            icon: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: _isAddMenuOpen ? Colors.purple : AppColours.primaryColour,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                  _isAddMenuOpen ? Icons.close : Icons.add,
-                  color: Colors.white,
-                  size: 30
-              ),
-            ),
-            label: '',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.pie_chart),
-            label: 'Budget',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildEmptyState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
+      child: Text(
+        "You don't have any budgets yet",
+        style: TextStyle(color: Colors.grey[600], fontSize: 16),
+      ),
+    );
+  }
+
+  Widget _buildListView() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      itemCount: _filteredBudgets.length,
+      itemBuilder: (_, i) => _buildCard(_filteredBudgets[i]),
+    );
+  }
+
+  Widget _buildCard(BudgetModel b) {
+    final spent = b.spentAmount;
+    final total = b.amount;
+    final remaining = total - spent;
+    final progress = total > 0 ? (spent / total).clamp(0.0, 1.0) : 0.0;
+    final color = _parseColor(b.color) ?? AppColours.primaryColour;
+
+    return GestureDetector(
+      onTap: () async {
+        final deleted = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(builder: (_) => ShowBudgetScreen(budget: b)),
+        );
+        if (deleted == true) _fetchBudgets();
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
+        ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Spacer(),
-            // Empty state illustration
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.pie_chart_outline,
-                size: 60,
-                color: Colors.grey[400],
-              ),
+            // pill + warning icon
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _categoryPill(b, color),
+                if (remaining < 0)
+                  const Icon(Icons.error_outline, color: Color(0xFFEB5757)),
+              ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 12),
+            // Remaining label & amount
+            const Text('Remaining', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
             Text(
-              "You don't have a budget.",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[800],
+              '₱${remaining.toStringAsFixed(0)}',
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            // Progress bar
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+                backgroundColor: Colors.grey[300],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  progress > 1.0 ? Colors.red : color,
+                ),
               ),
             ),
             const SizedBox(height: 8),
+            // spent/total and warning text
             Text(
-              "Let's make one so you in control.",
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              '₱${spent.toStringAsFixed(0)} of ₱${total.toStringAsFixed(0)}',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
             ),
-            const Spacer(),
-            // Create budget button
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 32),
-              child: ElevatedButton(
-                onPressed: _createBudget,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColours.primaryColour,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Create a budget',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+            if (remaining < 0) ...[
+              const SizedBox(height: 4),
+              const Text(
+                "You've exceeded the limit!",
+                style: TextStyle(color: Color(0xFFEB5757), fontSize: 14),
               ),
-            ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBudgetList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: budgets.length,
-      itemBuilder: (context, index) {
-        final budget = budgets[index];
-        return _buildBudgetItem(budget);
-      },
-    );
-  }
-
-  Widget _buildBudgetItem(Map<String, dynamic> budget) {
-    final spent = budget['spent'] as double;
-    final total = budget['total'] as double;
-    final progress = spent / total;
-    final remaining = total - spent;
-
+  Widget _categoryPill(BudgetModel b, Color color) {
+    final name = b.name.isNotEmpty ? b.name : 'Uncategorized';
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColours.primaryColour.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  budget['icon'] as IconData,
-                  color: AppColours.primaryColour,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      budget['category'] as String,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      '\$${remaining.toStringAsFixed(2)} remaining',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '\$${spent.toStringAsFixed(2)} / \$${total.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(
-              progress > 0.8 ? Colors.red : AppColours.primaryColour,
-            ),
-            minHeight: 6,
-          ),
+          Icon(_getCategoryIcon(name), size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
-  String _getMonthName(DateTime date) {
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    return '${months[date.month - 1]} ${date.year}';
-  }
-
-  // Navigation methods to match HomeScreen
-  void _navigateToHome() {
-    Navigator.pushReplacement(
+  void _onCreate() async {
+    final created = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
+      MaterialPageRoute(builder: (_) => const CreateBudgetScreen()),
     );
+    if (created == true) _fetchBudgets();
   }
 
-  void _navigateToTransaction() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const TransactionScreen()),
-    );
+  IconData _getCategoryIcon(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('food')) return Icons.restaurant;
+    if (n.contains('transport')) return Icons.directions_car;
+    if (n.contains('shopping')) return Icons.shopping_bag;
+    if (n.contains('health')) return Icons.favorite;
+    if (n.contains('education')) return Icons.school;
+    if (n.contains('bill')) return Icons.receipt;
+    if (n.contains('entertainment')) return Icons.movie;
+    return Icons.account_balance_wallet;
   }
 
-  void _navigateToProfile() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ProfileScreen()),
-    );
-  }
-
-  // Add menu toggle and button methods
-  void _toggleAddMenu() {
-    setState(() {
-      _isAddMenuOpen = !_isAddMenuOpen;
-    });
-  }
-
-  void _showAddIncomeScreen() {
-    setState(() {
-      _isAddMenuOpen = false;
-    });
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const IncomeScreen()),
-    );
-  }
-
-  void _showAddExpenseScreen() {
-    setState(() {
-      _isAddMenuOpen = false;
-    });
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ExpenseScreen()),
-    );
-  }
-
-  void _showTransferScreen() {
-    setState(() {
-      _isAddMenuOpen = false;
-    });
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const TransferScreen()),
-    );
-  }
-
-  void _createBudget() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create Budget'),
-        content: const Text('Budget creation functionality would go here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                budgets.add({
-                  'category': 'Food & Dining',
-                  'icon': Icons.restaurant,
-                  'spent': 250.0,
-                  'total': 500.0,
-                });
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
+  Color? _parseColor(String hex) {
+    try {
+      var h = hex.replaceAll('#', '');
+      if (h.length == 6) h = 'FF$h';
+      return Color(int.parse('0x$h'));
+    } catch (_) {
+      return null;
+    }
   }
 }

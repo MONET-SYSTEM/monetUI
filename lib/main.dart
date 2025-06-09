@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:monet/models/account.dart';
 import 'package:monet/models/account_type.dart';
+import 'package:monet/models/budget.dart';
 import 'package:monet/models/currency.dart';
 import 'package:monet/models/currency_transfer.dart';
 import 'package:monet/models/transaction.dart';
@@ -37,6 +38,7 @@ Future<void> main() async {
   Hive.registerAdapter(CategoryModelAdapter());
   Hive.registerAdapter(TransactionModelAdapter());
   Hive.registerAdapter(CurrencyTransferModelAdapter());
+  Hive.registerAdapter(BudgetModelAdapter());
   runApp(const MyApp());
 }
 
