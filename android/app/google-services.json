@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "167138283065",
+    "project_id": "monet-5f342",
+    "storage_bucket": "monet-5f342.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:167138283065:android:e17fe4161635ab5a8947e8",
+        "android_client_info": {
+          "package_name": "com.monet.monet"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "167138283065-bmvbrj0esp9290mh9j65uhmssr6agioo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.monet.monet",
+            "certificate_hash": "1fe86825a3f554bdfd787cfd9540a2a5579a7cbd"
+          }
+        },
+        {
+          "client_id": "167138283065-omjm4amr3ko1q887uv3keu17opj7pl6i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKaDoen2QorwPEEsciDU3BWmQ8ZWG28-4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "167138283065-1ufcs7u2t42142svom77u44irgq0kob8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
