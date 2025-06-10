@@ -7,6 +7,7 @@ import 'package:monet/models/budget.dart';
 import 'package:monet/models/category.dart';
 import 'package:monet/models/result.dart';
 import 'package:monet/resources/app_colours.dart';
+import 'package:monet/resources/app_routes.dart';
 import 'package:monet/views/navigation/bottom_navigation.dart';
 
 class CreateBudgetScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class CreateBudgetScreen extends StatefulWidget {
 class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
   final TextEditingController _amountCtrl = TextEditingController();
   final TextEditingController _descriptionCtrl = TextEditingController();
+  final TextEditingController _nameCtrl = TextEditingController();
 
   List<CategoryModel> _categories = [];
   String? _selectedCategoryId;
@@ -46,6 +48,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     if (b != null) {
       _amountCtrl.text = b.amount.toStringAsFixed(2);
       _descriptionCtrl.text = b.description ?? '';
+      _nameCtrl.text = b.name;
       _selectedPeriod = b.period;
       _startDate = b.startDate;
       _endDate = b.endDate;
@@ -136,10 +139,9 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
       _errorMessage = null;
     });
 
-    final name = widget.initialBudget?.name ??
-        (_descriptionCtrl.text.trim().isNotEmpty
-            ? _descriptionCtrl.text.trim()
-            : 'Budget');
+    final name = _nameCtrl.text.trim().isNotEmpty
+        ? _nameCtrl.text.trim()
+        : 'Budget';
     final description = _descriptionCtrl.text.trim().isNotEmpty
         ? _descriptionCtrl.text.trim()
         : null;
@@ -149,12 +151,12 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
       // creating
       result = await BudgetController.createBudget(
         name: name,
+        description: description,
         amount: amount,
+        categoryId: _selectedCategoryId,
         period: _selectedPeriod,
         startDate: _startDate!,
         endDate: _endDate!,
-        categoryId: _selectedCategoryId,
-        description: description,
         sendNotifications: _sendNotifications,
         notificationThreshold: _notificationThreshold,
       );
@@ -163,12 +165,12 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
       result = await BudgetController.updateBudget(
         budgetId: widget.initialBudget!.id,
         name: name,
+        description: description,
         amount: amount,
+        categoryId: _selectedCategoryId,
         period: _selectedPeriod,
         startDate: _startDate,
         endDate: _endDate,
-        categoryId: _selectedCategoryId,
-        description: description,
         sendNotifications: _sendNotifications,
         notificationThreshold: _notificationThreshold,
       );
@@ -178,6 +180,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     setState(() => _isLoading = false);
 
     if (result.isSuccess) {
+      // After creating/editing, pop and signal success to refresh BudgetScreen
       Navigator.of(context).pop(true);
     } else {
       setState(() => _errorMessage = result.message ?? 'Failed to save budget.');
@@ -188,6 +191,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
   void dispose() {
     _amountCtrl.dispose();
     _descriptionCtrl.dispose();
+    _nameCtrl.dispose();
     super.dispose();
   }
 
@@ -264,6 +268,16 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
           ),
+        const Text('Name', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _nameCtrl,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Groceries, Rent, ...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 16),
         const Text('Amount', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         TextField(
@@ -344,9 +358,13 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
             onPressed: _submit,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColours.primaryColour,
+              foregroundColor: AppColours.primaryColour,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            child: Text(widget.initialBudget == null ? 'Continue' : 'Save Changes'),
+            child: Text(
+              widget.initialBudget == null ? 'Continue' : 'Save Changes',
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ),
         const SizedBox(height: 16),

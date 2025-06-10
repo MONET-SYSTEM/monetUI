@@ -215,6 +215,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 onPressed: _updatePassword,
                 text: 'Update Password',
                 isLoading: _isLoading,
+                textColor: AppColours.backgroundColor,
               ),
 
               const SizedBox(height: 24),

@@ -211,4 +211,124 @@ class AuthController {
     return await AuthService.hasPin();
   }
 
+  static Future<Result> googleSignUp(String idToken) async {
+    try {
+      final response = await ApiService.post(ApiRoutes.googleSignUpUrl, {
+        'id_token': idToken
+      });
+
+      if (response.data == null) {
+        return Result(isSuccess: false, message: "Empty response from server");
+      }
+
+      final result = response.data['result'];
+      if (result == null) {
+        return Result(isSuccess: false, message: "Invalid response format from server");
+      }
+
+      final token = result['token'] ?? '';
+      final userModel = await AuthService.create(result['user'], token);
+      final user = await AuthService.get();
+      print('Token after Google sign up: \'${user?.token}\'');
+
+      return Result(isSuccess: true, message: response.data['message'] ?? "Registration successful", results: userModel);
+    } on DioException catch (e) {
+      final message = ApiService.errorMessage(e);
+      final errors = e.response?.data?['errors'];
+      return Result(isSuccess: false, message: message, errors: errors);
+    } catch (e) {
+      return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
+    }
+  }
+
+  static Future<Result> googleSignUpWithAccessToken(String accessToken) async {
+    try {
+      final response = await ApiService.post(ApiRoutes.googleSignUpUrl, {
+        'access_token': accessToken
+      });
+
+      if (response.data == null) {
+        return Result(isSuccess: false, message: "Empty response from server");
+      }
+
+      final result = response.data['result'];
+      if (result == null) {
+        return Result(isSuccess: false, message: "Invalid response format from server");
+      }
+
+      final token = result['token'] ?? '';
+      final userModel = await AuthService.create(result['user'], token);
+      final user = await AuthService.get();
+      print('Token after Google sign up with access token: \'${user?.token}\'');
+
+      return Result(isSuccess: true, message: response.data['message'] ?? "Registration successful", results: userModel);
+    } on DioException catch (e) {
+      final message = ApiService.errorMessage(e);
+      final errors = e.response?.data?['errors'];
+      return Result(isSuccess: false, message: message, errors: errors);
+    } catch (e) {
+      return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
+    }
+  }
+
+  static Future<Result> googleLogin(String idToken) async {
+    try {
+      final response = await ApiService.post(ApiRoutes.googleLoginUrl, {
+        'id_token': idToken
+      });
+
+      if (response.data == null) {
+        return Result(isSuccess: false, message: "Empty response from server");
+      }
+
+      final result = response.data['result'];
+      if (result == null) {
+        return Result(isSuccess: false, message: "Invalid response format from server");
+      }
+
+      final token = result['token'] ?? '';
+      final userModel = await AuthService.create(result['user'], token);
+      final user = await AuthService.get();
+      print('Token after Google login: \'${user?.token}\'');
+
+      return Result(isSuccess: true, message: response.data['message'] ?? "Login successful", results: userModel);
+    } on DioException catch (e) {
+      final message = ApiService.errorMessage(e);
+      final errors = e.response?.data?['errors'];
+      return Result(isSuccess: false, message: message, errors: errors);
+    } catch (e) {
+      return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
+    }
+  }
+
+  static Future<Result> googleLoginWithAccessToken(String accessToken) async {
+    try {
+      // Use the same URL as googleLogin but with access_token parameter
+      final response = await ApiService.post(ApiRoutes.googleLoginUrl, {
+        'access_token': accessToken
+      });
+
+      if (response.data == null) {
+        return Result(isSuccess: false, message: "Empty response from server");
+      }
+
+      final result = response.data['result'];
+      if (result == null) {
+        return Result(isSuccess: false, message: "Invalid response format from server");
+      }
+
+      final token = result['token'] ?? '';
+      final userModel = await AuthService.create(result['user'], token);
+      final user = await AuthService.get();
+      print('Token after Google login with access token: \'${user?.token}\'');
+
+      return Result(isSuccess: true, message: response.data['message'] ?? "Login successful", results: userModel);
+    } on DioException catch (e) {
+      final message = ApiService.errorMessage(e);
+      final errors = e.response?.data?['errors'];
+      return Result(isSuccess: false, message: message, errors: errors);
+    } catch (e) {
+      return Result(isSuccess: false, message: AppStrings.anErrorOccurredTryAgain);
+    }
+  }
 }

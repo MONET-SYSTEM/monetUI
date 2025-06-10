@@ -6,6 +6,9 @@ import 'package:monet/controller/profile.dart';
 import 'package:monet/utils/helper.dart';
 import 'package:monet/widgets/app_button.dart';
 import 'package:monet/widgets/app_text_field.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({Key? key}) : super(key: key);
@@ -29,6 +32,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = false;
   String? _gender;
   DateTime? _dateOfBirth;
+  File? _avatarFile;
+  final ImagePicker _picker = ImagePicker();
 
   final List<String> _genderOptions = ['male', 'female', 'other'];
 
@@ -51,7 +56,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _loadUserProfile() async {
     setState(() => _isLoading = true);
-
     try {
       final result = await ProfileController.getProfile();
       if (result.isSuccess && result.results != null) {
@@ -65,6 +69,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _dateOfBirth = _user?.dateOfBirth;
           _countryController.text = _user?.country ?? '';
           _cityController.text = _user?.city ?? '';
+          // Load avatar from user model if exists
+          if (_user?.avatar != null && _user!.avatar!.isNotEmpty) {
+            _avatarFile = File(_user!.avatar!);
+          }
         });
       } else {
         _showSnackBar(result.message ?? 'Failed to load profile');
@@ -82,6 +90,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Save avatar path if selected
+      String? avatarPath = _avatarFile?.path;
       final result = await ProfileController.updateProfile(
         name: _nameController.text,
         email: _emailController.text,
@@ -91,6 +101,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         dateOfBirth: _dateOfBirth,
         country: _countryController.text.isNotEmpty ? _countryController.text : null,
         city: _cityController.text.isNotEmpty ? _cityController.text : null,
+        avatar: avatarPath,
       );
 
       if (result.isSuccess) {
@@ -100,7 +111,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _showSnackBar(result.message ?? 'Failed to update profile');
       }
     } catch (e) {
-      _showSnackBar('Error updating profile: ${e.toString()}');
+      _showSnackBar('Error updating profile: ${e.toString()}');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -127,6 +138,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  Future<void> _pickAvatar() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      // Save to app's documents directory (not assets, which is read-only)
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.png';
+      final savedImage = await File(pickedFile.path).copy('${appDir.path}/$fileName');
+      setState(() {
+        _avatarFile = savedImage;
+      });
+      _showSnackBar('Avatar updated!');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -149,20 +174,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Center(
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: AppColours.primaryColour,
-                      child: Text(
-                        _nameController.text.isNotEmpty ? _nameController.text[0].toUpperCase() : '?',
-                        style: AppStyles.bold(size: 40, color: Colors.white),
+                    GestureDetector(
+                      onTap: _pickAvatar,
+                      child: CircleAvatar(
+                        radius: 50,
+                        backgroundColor: AppColours.primaryColour,
+                        backgroundImage: _avatarFile != null ? FileImage(_avatarFile!) : null,
+                        child: _avatarFile == null
+                            ? Text(
+                          _nameController.text.isNotEmpty ? _nameController.text[0].toUpperCase() : '?',
+                          style: AppStyles.bold(size: 40, color: Colors.white),
+                        )
+                            : null,
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextButton(
-                      onPressed: () {
-                        // Avatar change functionality would go here
-                        _showSnackBar('Avatar upload not implemented in this example');
-                      },
+                      onPressed: _pickAvatar,
                       child: Text(
                         'Change Avatar',
                         style: AppStyles.medium(color: AppColours.primaryColour),

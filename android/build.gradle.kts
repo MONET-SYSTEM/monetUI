@@ -1,3 +1,8 @@
+// Top-level plugins block for version catalogs and plugin management
+plugins {
+    id("com.google.gms.google-services") version "4.4.2" apply false
+}
+
 allprojects {
     repositories {
         google()

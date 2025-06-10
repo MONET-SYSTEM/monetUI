@@ -595,51 +595,43 @@ class _TransactionScreenState extends State<TransactionScreen> {
           backgroundColor: Colors.white,
           elevation: 0,
           automaticallyImplyLeading: false,
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    DropdownButton<String>(
-                      value: selectedMonth,
-                      icon: Icon(Icons.arrow_drop_down, color: Colors.black),
-                      underline: SizedBox(),
-                      style: TextStyle(color: Colors.black, fontSize: 14),
-                      dropdownColor: Colors.white,
-                      items: availableMonths.map((String month) {
-                        return DropdownMenuItem<String>(
-                          value: month,
-                          child: Text(month, style: TextStyle(fontSize: 14)),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            selectedMonth = newValue;
-                          });
-                          // Optionally, filter transactions by month here
-                        }
-                      },
-                    ),
-                  ],
+          title: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                DropdownButton<String>(
+                  value: selectedMonth,
+                  icon: Icon(Icons.arrow_drop_down, color: Colors.black),
+                  underline: SizedBox(),
+                  style: TextStyle(color: Colors.black, fontSize: 14),
+                  dropdownColor: Colors.white,
+                  items: availableMonths.map((String month) {
+                    return DropdownMenuItem<String>(
+                      value: month,
+                      child: Text(month, style: TextStyle(fontSize: 14)),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        selectedMonth = newValue;
+                      });
+                      // Optionally, filter transactions by month here
+                    }
+                  },
                 ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Center(
-                  child: Text(
-                    'Transaction',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
+                SizedBox(width: 16),
+                Text(
+                  'Transaction',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-              Expanded(child: SizedBox()), // For symmetry
-            ],
+              ],
+            ),
           ),
           actions: [
             IconButton(

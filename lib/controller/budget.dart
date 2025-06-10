@@ -38,11 +38,11 @@ class BudgetController {
       final response = await ApiService.post(ApiRoutes.budgetUrl, payload);
       final data = response.data['data'] as Map<String, dynamic>?;
 
-      if (data == null || data['budget'] == null) {
+      if (data == null) {
         return Result(isSuccess: false, message: 'Invalid response from server.');
       }
 
-      final budget = BudgetModel.fromMap(data['budget']);
+      final budget = BudgetModel.fromMap(data);
       await BudgetService.save(budget);
 
       return Result(
@@ -62,31 +62,22 @@ class BudgetController {
     final rawData = response.data['data'];
 
     List<dynamic> list;
-
     if (rawData is List) {
-      // old-style un-paginated array
       list = rawData;
-    } else if (rawData is Map) {
-      // Laravel ResourceCollection -> data: { data: [ … ], links, meta }
-      if (rawData['data'] is List) {
-        list = rawData['data'];
-      }
-      // if you ever change your API to wrap in 'budgets': …
-      else if (rawData.containsKey('budgets') && rawData['budgets'] is List) {
-        list = rawData['budgets'];
-      } else {
-        return Result(isSuccess: false, message: 'Unexpected payload from server');
-      }
+    } else if (rawData is Map && rawData['data'] is List) {
+      list = rawData['data'];
+    } else if (rawData is Map && rawData['budgets'] is List) {
+      list = rawData['budgets'];
     } else {
-      return Result(isSuccess: false, message: 'Invalid response format');
+      return Result(isSuccess: false, message: 'Unexpected payload from server');
     }
 
     final budgets = list
         .cast<Map<String, dynamic>>()
         .map(BudgetModel.fromMap)
         .toList();
-
     await BudgetService.saveAll(budgets);
+
     return Result(
       isSuccess: true,
       message: response.data['message'] ?? 'Budgets loaded',
@@ -111,12 +102,12 @@ class BudgetController {
     try {
       final payload = <String, dynamic>{
         if (name != null) 'name': name,
+        if (description != null) 'description': description,
         if (amount != null) 'amount': amount.toString(),
         if (period != null) 'period': period,
         if (startDate != null) 'start_date': startDate.toIso8601String(),
         if (endDate != null) 'end_date': endDate.toIso8601String(),
         if (categoryId != null) 'category_id': categoryId,
-        if (description != null) 'description': description,
         if (sendNotifications != null)
           'send_notifications': sendNotifications ? '1' : '0',
         if (notificationThreshold != null)
@@ -129,11 +120,11 @@ class BudgetController {
       await ApiService.put('${ApiRoutes.budgetUrl}/$budgetId', payload);
       final data = response.data['data'] as Map<String, dynamic>?;
 
-      if (data == null || data['budget'] == null) {
+      if (data == null) {
         return Result(isSuccess: false, message: 'Invalid response from server.');
       }
 
-      final updated = BudgetModel.fromMap(data['budget']);
+      final updated = BudgetModel.fromMap(data);
       await BudgetService.save(updated);
 
       return Result(
@@ -154,9 +145,7 @@ class BudgetController {
       await ApiService.delete('${ApiRoutes.budgetUrl}/$budgetId');
       final success = response.data['success'] == true;
 
-      if (success) {
-        await BudgetService.delete(budgetId);
-      }
+      if (success) await BudgetService.delete(budgetId);
 
       return Result(
         isSuccess: success,

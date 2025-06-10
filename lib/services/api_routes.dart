@@ -18,7 +18,7 @@ class ApiRoutes {
   static String notificationUrl = '$baseUrl/notification';
   static String settingsUrl = '$baseUrl/settings';
   static String budgetUrl = '$baseUrl/budget';
+  static String googleSignUpUrl = '$baseUrl/google-signup';
+  static String googleLoginUrl = '$baseUrl/google-login';
 
 }
-
-

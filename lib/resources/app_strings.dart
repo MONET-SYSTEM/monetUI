@@ -9,6 +9,7 @@ class AppStrings {
   static String signUp = 'Sign Up';
   static String signUpWithGoogle = 'Sign Up with Google';
   static String login = 'Login';
+  static String loginWithGoogle = 'Login with Google';
   static String continueText = 'Continue';
   static String logout = 'Logout';
   static String verification = 'Verification';

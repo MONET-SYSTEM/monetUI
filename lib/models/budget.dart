@@ -54,12 +54,25 @@ class BudgetModel extends HiveObject {
   @HiveField(15)
   final String color;
 
+  // New fields for the nested category object:
+  @HiveField(16)
+  final String? categoryName;
+
+  @HiveField(17)
+  final String? categoryIcon;
+
+  @HiveField(18)
+  final String? categoryColour;
+
   static const String boxName = 'budgets';
 
   BudgetModel({
     required this.id,
     required this.userId,
     this.categoryId,
+    this.categoryName,
+    this.categoryIcon,
+    this.categoryColour,
     required this.name,
     this.description,
     this.amount = 0.0,
@@ -79,19 +92,20 @@ class BudgetModel extends HiveObject {
         endDate = endDate ?? DateTime.now();
 
   factory BudgetModel.fromMap(Map<String, dynamic> json) {
-    // nested category support
-    String? catId = json['category_id']?.toString();
-    if (catId == null && json['category'] is Map) {
-      catId = json['category']['id']?.toString();
-    }
+    // Extract nested category if present
+    final rawCat = json['category'] as Map<String, dynamic>?;
+    final catId = rawCat?['id']?.toString() ?? json['category_id']?.toString();
 
     final rawNotif = json['send_notifications'];
-    final rawThreshold = json['notification_threshold'];
+    final rawThresh = json['notification_threshold'];
 
     return BudgetModel(
       id: json['id']?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
       categoryId: catId,
+      categoryName: rawCat?['name']?.toString(),
+      categoryIcon: rawCat?['icon']?.toString(),
+      categoryColour: rawCat?['colour_code']?.toString(),
       name: json['name']?.toString() ?? '',
       description: json['description']?.toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
@@ -108,10 +122,10 @@ class BudgetModel extends HiveObject {
       status: json['status']?.toString() ?? '',
       sendNotifications: rawNotif is bool
           ? rawNotif
-          : rawNotif == 1 || rawNotif == '1',
-      notificationThreshold: rawThreshold is int
-          ? rawThreshold
-          : int.tryParse(rawThreshold?.toString() ?? '') ?? 0,
+          : (rawNotif?.toString() == '1'),
+      notificationThreshold: rawThresh is int
+          ? rawThresh
+          : int.tryParse(rawThresh?.toString() ?? '') ?? 0,
       color: json['color']?.toString() ?? '#007bff',
     );
   }
@@ -133,15 +147,21 @@ class BudgetModel extends HiveObject {
     'send_notifications': sendNotifications,
     'notification_threshold': notificationThreshold,
     'color': color,
+    // We don’t send categoryName/icon/colour back to API
   };
 
+  /// Percentage of the budget spent (0.0 – 1.0)
   double get progress =>
       amount > 0.0 ? (spentAmount / amount).clamp(0.0, 1.0) : 0.0;
 
+  /// Create a modified copy
   BudgetModel copyWith({
     String? id,
     String? userId,
     String? categoryId,
+    String? categoryName,
+    String? categoryIcon,
+    String? categoryColour,
     String? name,
     String? description,
     double? amount,
@@ -160,6 +180,9 @@ class BudgetModel extends HiveObject {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       categoryId: categoryId ?? this.categoryId,
+      categoryName: categoryName ?? this.categoryName,
+      categoryIcon: categoryIcon ?? this.categoryIcon,
+      categoryColour: categoryColour ?? this.categoryColour,
       name: name ?? this.name,
       description: description ?? this.description,
       amount: amount ?? this.amount,
@@ -186,5 +209,5 @@ class BudgetModel extends HiveObject {
   int get hashCode => id.hashCode;
 
   @override
-  String toString() => 'Budget($name: $progress)';
+  String toString() => 'Budget($name, $amount, spent: $spentAmount)';
 }

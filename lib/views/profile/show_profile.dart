@@ -8,6 +8,7 @@ import 'package:monet/resources/app_spacing.dart';
 import 'package:monet/utils/helper.dart';
 import 'package:intl/intl.dart';
 import 'package:monet/services/profile_service.dart';
+import 'dart:io';
 
 class ShowProfileScreen extends StatefulWidget {
   const ShowProfileScreen({Key? key}) : super(key: key);
@@ -98,28 +99,33 @@ class _ShowProfileScreenState extends State<ShowProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Profile avatar
-                          Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: AppColours.primaryColour,
-                              shape: BoxShape.circle,
-                              image: _user!.avatar != null && _user!.avatar!.isNotEmpty
-                                  ? DecorationImage(
-                                      image: NetworkImage(_user!.avatar!),
+                          _user!.avatar != null && _user!.avatar!.isNotEmpty && File(_user!.avatar!).existsSync()
+                              ? Container(
+                                  width: 120,
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    color: AppColours.primaryColour,
+                                    shape: BoxShape.circle,
+                                    image: DecorationImage(
+                                      image: FileImage(File(_user!.avatar!)),
                                       fit: BoxFit.cover,
-                                    )
-                                  : null,
-                            ),
-                            child: _user!.avatar == null || _user!.avatar!.isEmpty
-                                ? Center(
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  width: 120,
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    color: AppColours.primaryColour,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
                                     child: Text(
                                       _user!.name.isNotEmpty ? _user!.name[0].toUpperCase() : "?",
                                       style: AppStyles.bold(size: 48, color: Colors.white),
                                     ),
-                                  )
-                                : null,
-                          ),
+                                  ),
+                                ),
                           AppSpacing.vertical(size: 16),
                           // User name
                           Text(

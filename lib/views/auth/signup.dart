@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:monet/controller/auth.dart';
 import 'package:monet/resources/app_colours.dart';
 import 'package:monet/resources/app_routes.dart';
@@ -10,6 +11,14 @@ import 'package:monet/views/components/form/checkbox_input.dart';
 import 'package:monet/views/components/form/text_signup.dart';
 import 'package:monet/views/components/ui/app_bar.dart';
 import 'package:monet/views/components/ui/button.dart';
+
+final GoogleSignIn _googleSignIn = GoogleSignIn(
+  scopes: [
+    'email',
+    'profile',
+    'openid', // This is crucial for getting idToken
+  ],
+);
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -64,9 +73,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     padding: const EdgeInsets.all(12),
                     child: Image.asset("assets/images/google.png"),
                   ),
-                  onPressed: () {
-                    print("signUpWithGoogle");
-                  }),
+                  onPressed: _handleGoogleSignUp),
               AppSpacing.vertical(),
               Text.rich(
                   textAlign: TextAlign.center,
@@ -198,6 +205,57 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
+    final route = await Helper.initialRoute();
+    Navigator.of(context).pushNamed(route);
+  }
+
+  Future<void> _handleGoogleSignUp() async {
+    setState(() => _isLoading = true);
+    try {
+      await _googleSignIn.signOut();
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        setState(() => _isLoading = false);
+        return; // User cancelled
+      }
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final accessToken = googleAuth.accessToken;
+
+      if (accessToken == null) {
+        Helper.snackBar(context,
+          message: 'Google sign in failed: No access token received.',
+          isSuccess: false
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Use accessToken with AuthController instead of idToken
+      var result = await AuthController.googleSignUpWithAccessToken(accessToken);
+      _handleGoogleSignUpResult(result);
+
+    } catch (e) {
+      print('Google Sign-In Error: $e');
+      Helper.snackBar(context,
+        message: 'Google sign in failed: ${e.toString()}',
+        isSuccess: false
+      );
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _handleGoogleSignUpResult(result) async {
+    setState(() => _isLoading = false);
+
+    if (!result.isSuccess) {
+      Helper.snackBar(context, message: result.message, isSuccess: false);
+      if (result.errors != null) {
+        setState(() => _errors = result.errors!);
+      }
+      return;
+    }
+
+    Helper.snackBar(context, message: result.message, isSuccess: true);
     final route = await Helper.initialRoute();
     Navigator.of(context).pushNamed(route);
   }

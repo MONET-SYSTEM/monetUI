@@ -47,7 +47,7 @@ class AppButton extends StatelessWidget {
             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
           ),
         )
-            : Text(text, style: AppStyles.medium(size: 16)),
+            : Text(text, style: AppStyles.medium(size: 16).copyWith(color: textColor ?? Colors.white)),
       ),
     );
   }

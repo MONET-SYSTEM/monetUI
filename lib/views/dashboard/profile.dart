@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:monet/controller/account.dart';
 import 'package:monet/controller/auth.dart';
@@ -15,6 +17,7 @@ import 'package:monet/views/dashboard/expense.dart';
 import 'package:monet/views/dashboard/transaction.dart';
 import 'package:monet/views/dashboard/transfer.dart';
 import 'package:monet/views/navigation/bottom_navigation.dart';
+import 'package:monet/views/profile/notification.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -289,12 +292,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: AppColours.primaryColour,
-                    child: Text(
-                      _user?.name?.isNotEmpty == true ? _user!.name[0] : "?",
-                      style: AppStyles.bold(size: 24, color: Colors.white),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, AppRoutes.showProfile);
+                    },
+                    child: CircleAvatar(
+                      radius: 30,
+                      backgroundColor: AppColours.primaryColour,
+                      backgroundImage: _user?.avatar != null && _user!.avatar!.isNotEmpty
+                          ? FileImage(File(_user!.avatar!))
+                          : null,
+                      child: (_user?.avatar == null || _user!.avatar!.isEmpty)
+                          ? Text(
+                              _user!.name.isNotEmpty ? _user!.name[0].toUpperCase() : '?',
+                              style: AppStyles.bold(size: 28, color: Colors.white),
+                            )
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -302,23 +315,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _user!.name,
-                                style: AppStyles.bold(size: 20),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.visibility, color: Colors.teal),
-                              tooltip: 'Show Profile',
-                              onPressed: () {
-                                Navigator.pushNamed(context, AppRoutes.showProfile);
-                              },
-                            ),
-                          ],
+                        Text(
+                          _user!.name,
+                          style: AppStyles.bold(size: 20),
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -380,6 +380,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text('Other', style: AppStyles.semibold()),
             const SizedBox(height: 12),
 
+            // Notification menu item
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.notifications, color: Colors.white),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(child: Text('Notification', style: AppStyles.medium())),
+                    const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
             // Logout menu item
             _buildMenuItem(
               icon: Icons.logout,
@@ -463,12 +505,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: Colors.white,
                         child: Row(
                           children: [
-                            CircleAvatar(
-                              radius: 32,
-                              backgroundColor: AppColours.primaryColour,
-                              child: Text(
-                                _user!.name.isNotEmpty ? _user!.name[0].toUpperCase() : '?',
-                                style: AppStyles.bold(size: 28, color: Colors.white),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pushNamed(context, AppRoutes.showProfile);
+                              },
+                              child: CircleAvatar(
+                                radius: 32,
+                                backgroundColor: AppColours.primaryColour,
+                                backgroundImage: _user?.avatar != null && _user!.avatar!.isNotEmpty
+                                    ? FileImage(File(_user!.avatar!))
+                                    : null,
+                                child: (_user?.avatar == null || _user!.avatar!.isEmpty)
+                                    ? Text(
+                                        _user!.name.isNotEmpty ? _user!.name[0].toUpperCase() : '?',
+                                        style: AppStyles.bold(size: 28, color: Colors.white),
+                                      )
+                                    : null,
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -476,23 +528,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          _user!.name,
-                                          style: AppStyles.bold(size: 20),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.visibility, color: Colors.teal),
-                                        tooltip: 'Show Profile',
-                                        onPressed: () {
-                                          Navigator.pushNamed(context, AppRoutes.showProfile);
-                                        },
-                                      ),
-                                    ],
+                                  Text(
+                                    _user!.name,
+                                    style: AppStyles.bold(size: 20),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -548,6 +587,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const SizedBox(height: 24),
                               Text('Other', style: AppStyles.semibold()),
                               const SizedBox(height: 12),
+                              // Notification menu item
+                              InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.grey.withOpacity(0.1),
+                                        spreadRadius: 1,
+                                        blurRadius: 3,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.notifications, color: Colors.white),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(child: Text('Notification', style: AppStyles.medium())),
+                                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+                              // Logout menu item
                               _buildMenuItem(
                                 icon: Icons.logout,
                                 iconColor: Colors.white,

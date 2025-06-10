@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:monet/controller/account.dart';
 import 'package:monet/controller/transaction.dart';
+import 'package:monet/controller/notification.dart';
 import 'package:monet/models/account.dart';
 import 'package:monet/models/transaction.dart';
 import 'package:monet/resources/app_colours.dart';
@@ -15,6 +16,10 @@ import 'package:monet/views/dashboard/profile.dart';
 import 'package:monet/views/dashboard/transaction.dart';
 import 'package:monet/views/dashboard/transfer.dart';
 import 'package:monet/controller/account_type.dart';
+import 'package:monet/views/profile/notification.dart';
+import 'package:monet/services/auth_service.dart';
+import 'package:monet/models/user.dart';
+import 'dart:io';
 
 enum TransactionFilter { today, week, month }
 
@@ -39,7 +44,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isLoading = true;
   int _currentIndex = 0;
   bool _isAddMenuOpen = false;
-  String defaultCurrencySymbol = '\$';
+  String defaultCurrencySymbol = '\₱';
+  int unreadCount = 0;
+
+  UserModel? _user;
+  File? _avatarFile;
 
   // Selected date for filtering
   DateTime selectedDate = DateTime.now();
@@ -51,6 +60,27 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     loadDashboardData();
+    _loadUnreadCount();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = await AuthService.get();
+    setState(() {
+      _user = user;
+      if (_user?.avatar != null && _user!.avatar!.isNotEmpty) {
+        _avatarFile = File(_user!.avatar!);
+      }
+    });
+  }
+
+  Future<void> _loadUnreadCount() async {
+    final result = await NotificationController.getUnreadCount();
+    if (mounted && result.isSuccess) {
+      setState(() {
+        unreadCount = result.results ?? 0;
+      });
+    }
   }
 
   Future<void> loadDashboardData() async {
@@ -515,61 +545,96 @@ class _HomeScreenState extends State<HomeScreen> {
                           // Top row: profile icon, date dropdown and notification icon
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               // Profile icon on the left
                               InkWell(
                                 onTap: _navigateToProfile,
-                                child: const CircleAvatar(
-                                  radius: 20,
-                                  backgroundImage: AssetImage('assets/images/avatar.png'),
-                                ),
+                                child: _avatarFile != null
+                                    ? CircleAvatar(
+                                        radius: 24, // Medium size
+                                        backgroundImage: FileImage(_avatarFile!),
+                                      )
+                                    : const CircleAvatar(
+                                        radius: 24, // Medium size
+                                      ),
                               ),
-
-                              // Date dropdown in center
+                              // Month Filter centered
                               PopupMenuButton<String>(
                                 offset: const Offset(0, 40),
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
                                       '$currentMonth $currentYear',
-                                      style: AppStyles.bold(size: 20),
+                                      style: AppStyles.bold(size: 15),
                                     ),
-                                    const Icon(Icons.arrow_drop_down),
+                                    const Icon(Icons.arrow_drop_down, size: 18),
                                   ],
                                 ),
                                 onSelected: (String value) {
-                                  // Handle date selection
                                   final date = DateFormat('yyyy-MM').parse(value);
                                   setState(() {
                                     selectedDate = date;
                                   });
-                                  loadDashboardData(); // Reload data for selected month
+                                  loadDashboardData();
                                 },
                                 itemBuilder: (BuildContext context) {
-                                  // Create a list of the past 12 months in ascending order
                                   final now = DateTime.now();
                                   final months = List.generate(12, (index) {
-                                    // Start from 11 months ago and go forward to current month
                                     final date = DateTime(now.year, now.month - 11 + index);
                                     return {
                                       'value': DateFormat('yyyy-MM').format(date),
                                       'text': DateFormat('MMMM yyyy').format(date),
                                     };
                                   });
-
                                   return months.map((month) => PopupMenuItem<String>(
                                     value: month['value'],
                                     child: Text(month['text']!),
                                   )).toList();
                                 },
                               ),
-
                               // Notification icon on the right
-                              IconButton(
-                                icon: const Icon(Icons.notifications, size: 24),
-                                onPressed: () {
-                                  // Handle notification button press
-                                },
+                              Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.notifications, size: 26, color: Colors.black87),
+                                    onPressed: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                                      );
+                                      _loadUnreadCount();
+                                    },
+                                  ),
+                                  if (unreadCount > 0)
+                                    Positioned(
+                                      right: 6,
+                                      top: 10,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 18,
+                                          minHeight: 18,
+                                        ),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            unreadCount > 99 ? '99+' : unreadCount.toString(),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                           ),
@@ -581,9 +646,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Text(
                                   'Account Balance',
-                                  style: AppStyles.regular1(
-                                    size: 14,
-                                    color: Colors.black54,
+                                  style: AppStyles.medium(
+                                    size: 16,
+                                    color: Colors.black,
                                   ),
                                 ),
                                 AppSpacing.vertical(size: 8),

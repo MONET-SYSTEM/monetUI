@@ -51,6 +51,7 @@ dependencies:
   http_parser: ^4.1.2
   flutter_local_notifications: ^19.2.1
   country_state_city_picker: ^1.0.0
+  google_sign_in: ^6.2.1
 
 dev_dependencies:
   flutter_test:

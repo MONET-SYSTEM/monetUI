@@ -18,6 +18,7 @@ class AppRoutes {
   static String budget = '/budget';
   static String transaction = '/transaction';
   static String showProfile = '/show-profile';
+  static String showBudget = '/show-budget';
 
 }
 
